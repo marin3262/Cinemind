@@ -5,10 +5,10 @@ import { Colors } from '@/constants/theme';
 
 type SwipeCardProps = {
   movie: {
-    id: number;
+    movie_id: number;
     title: string;
-    poster: string;
-    genre: string;
+    poster_url: string;
+    genre_name: string;
   };
   style: any;
 };
@@ -16,8 +16,9 @@ type SwipeCardProps = {
 const SwipeCard = ({ movie, style }: SwipeCardProps) => {
   return (
     <Animated.View style={[styles.card, style]}>
-      <Image source={{ uri: movie.poster }} style={styles.poster} />
+      <Image source={{ uri: movie.poster_url }} style={styles.poster} />
       <View style={styles.gradient}>
+        <Text style={styles.genre}>{movie.genre_name}</Text>
         <Text style={styles.title}>{movie.title}</Text>
       </View>
     </Animated.View>
@@ -51,12 +52,18 @@ const styles = StyleSheet.create({
     right: 0,
     height: '40%',
     backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 16,
+    padding: 20,
     justifyContent: 'flex-end',
+  },
+  genre: {
+    color: '#EAEAEA',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   title: {
     color: 'white',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
   },
 });

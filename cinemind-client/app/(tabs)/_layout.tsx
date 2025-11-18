@@ -24,6 +24,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="explore"
+        options={{
+          title: '둘러보기',
+          tabBarIcon: ({ color }) => <FontAwesome size={28} name="compass" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="recommend"
         options={{
           title: '추천',

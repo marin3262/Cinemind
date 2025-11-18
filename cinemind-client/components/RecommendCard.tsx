@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 type RecommendCardProps = {
   movie: {
+    id: string | number;
     title: string;
+    poster_url?: string; // Make poster_url optional
   };
   onPress: () => void;
 };
@@ -12,9 +14,13 @@ type RecommendCardProps = {
 const RecommendCard = ({ movie, onPress }: RecommendCardProps) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
-      <View style={styles.poster}>
-        <Text style={styles.posterText}>영화포스터</Text>
-      </View>
+      {movie.poster_url ? (
+        <Image source={{ uri: movie.poster_url }} style={styles.posterImage} />
+      ) : (
+        <View style={styles.posterPlaceholder}>
+          <Text style={styles.posterText}>영화포스터</Text>
+        </View>
+      )}
       <Text style={styles.title} numberOfLines={1}>{movie.title}</Text>
     </TouchableOpacity>
   );
@@ -25,7 +31,13 @@ const styles = StyleSheet.create({
     width: 140,
     marginRight: 16,
   },
-  poster: {
+  posterImage: {
+    width: 140,
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB', // for loading
+  },
+  posterPlaceholder: {
     width: 140,
     height: 200,
     backgroundColor: '#E5E7EB', // neutral-200

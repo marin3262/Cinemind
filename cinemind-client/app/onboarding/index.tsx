@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-na
 import { useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 
 const moods = [
   { emoji: '🔥', text: '신나는' },
@@ -12,6 +13,7 @@ const moods = [
 
 export default function OnboardingMoodScreen() {
   const router = useRouter();
+  const { authState } = useAuth();
 
   const handleMoodSelect = (mood: { text: string; emoji: string }) => {
     // Navigate to the swipe screen, passing the mood as a parameter
@@ -29,7 +31,7 @@ export default function OnboardingMoodScreen() {
 
         <View style={styles.content}>
             <View style={styles.prompt}>
-                <Text style={styles.promptTitle}>정규철님, 환영합니다!</Text>
+                <Text style={styles.promptTitle}>{authState.user?.username || '사용자'}님, 환영합니다!</Text>
                 <Text style={styles.promptSubtitle}>CineMind의 정확한 추천을 위해{"\n"}지금 기분을 알려주세요.</Text>
             </View>
 

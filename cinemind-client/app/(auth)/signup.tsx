@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import API_BASE_URL from '@/constants/config';
@@ -59,6 +59,8 @@ const InnerContent = (props: any) => {
 export default function SignUpScreen() {
     const { onSignup } = useAuth();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const likedMovieIds = params.liked_ids ? JSON.parse(params.liked_ids as string) : [];
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -77,16 +79,28 @@ export default function SignUpScreen() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ [type]: value }),
             });
-            const data = await response.json();
+            
             if (response.ok) {
+                const data = await response.json();
                 Alert.alert("성공", data.message);
                 if (type === 'username') setUsernameChecked(true);
                 else setEmailChecked(true);
             } else {
-                throw new Error(data.detail);
+                let errorMessage = "확인 중 오류가 발생했습니다.";
+                // Check status code for more specific messages
+                if (response.status === 422) {
+                    errorMessage = type === 'email' ? "이메일 형식이 올바르지 않습니다." : "아이디 형식이 올바르지 않습니다.";
+                } else {
+                    // For other errors like 409 (Conflict), the backend sends a specific message
+                    const data = await response.json();
+                    errorMessage = data.detail || errorMessage;
+                }
+                Alert.alert("오류", errorMessage);
+                if (type === 'username') setUsernameChecked(false);
+                else setEmailChecked(false);
             }
         } catch (e: any) {
-            Alert.alert("오류", e.message);
+            Alert.alert("오류", `네트워크 오류 또는 알 수 없는 문제가 발생했습니다.`);
             if (type === 'username') setUsernameChecked(false);
             else setEmailChecked(false);
         }
@@ -105,7 +119,7 @@ export default function SignUpScreen() {
             Alert.alert("오류", "비밀번호가 일치하지 않습니다.");
             return;
         }
-        const result = await onSignup(username, email, password);
+        const result = await onSignup(username, email, password, likedMovieIds);
         if (result && !result.success) {
               Alert.alert("회원가입 실패", String(result.error));
             }    };

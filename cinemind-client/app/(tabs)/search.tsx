@@ -1,75 +1,58 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView, Keyboard, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView, Keyboard, Alert, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/theme';
 import MovieCard from '@/components/MovieCard';
 import MovieModal from '@/components/MovieModal';
 import API_BASE_URL from '@/constants/config';
 import { authenticatedFetch } from '@/utils/api';
+import { useMovieModal } from '@/hooks/useMovieModal';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [allMovies, setAllMovies] = useState<any[]>([]);
-  
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedMovie, setSelectedMovie] = useState<any | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  const { 
+    modalVisible, 
+    selectedMovie, 
+    isDetailLoading, 
+    handleMoviePress: openMovieModal, 
+    handleCloseModal, 
+    handleSaveRating 
+  } = useMovieModal();
+
+  // Debounce effect for search input
   useEffect(() => {
-    // Fetch the same list of movies as the home screen to search through
-    const fetchMovies = async () => {
+    if (searchQuery.trim().length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsLoading(true);
+    const handler = setTimeout(async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/movies/box-office`);
-        if (!response.ok) throw new Error('Failed to fetch movies');
+        const encodedQuery = encodeURIComponent(searchQuery);
+        const response = await fetch(`${API_BASE_URL}/movies/search?query=${encodedQuery}`);
+        if (!response.ok) {
+          throw new Error('검색 결과를 불러오는 데 실패했습니다.');
+        }
         const data = await response.json();
-        setAllMovies(data);
-      } catch (e) {
-        console.error(e);
+        setSearchResults(data);
+      } catch (e: any) {
+        Alert.alert('오류', e.message);
+      } finally {
+        setIsLoading(false);
       }
+    }, 500); // 500ms delay
+
+    return () => {
+      clearTimeout(handler);
     };
-    fetchMovies();
-  }, []);
-
-  const filteredMovies = useMemo(() => {
-    if (!searchQuery) {
-      return [];
-    }
-    return allMovies.filter(movie => 
-      movie.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, allMovies]);
-
-  const handleMoviePress = async (movie: any) => {
-    setModalVisible(true);
-    setSelectedMovie(movie);
-    setIsDetailLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/movies/${movie.id}`);
-      if (!response.ok) throw new Error('상세 정보를 불러오는 데 실패했습니다.');
-      const details = await response.json();
-      setSelectedMovie((prevMovie: any) => ({ ...prevMovie, ...details }));
-    } catch (e: any) {
-      Alert.alert('오류', e.message);
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setModalVisible(false);
-    setSelectedMovie(null);
-  };
+  }, [searchQuery]);
   
-  const handleSaveRating = async (movieId: string, rating: number) => {
-    try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/ratings`, {
-        method: 'POST',
-        body: JSON.stringify({ movie_id: movieId, rating: rating }),
-      });
-       if (!response.ok) throw new Error('평점 저장에 실패했습니다.');
-      Alert.alert("성공", "평점이 저장되었습니다.");
-    } catch (e: any) {
-      Alert.alert("오류", e.message);
-    }
+  const handleCardPress = (movie: any) => {
+    // 검색 결과는 TMDB의 결과이므로, TMDB ID를 사용하도록 movie 객체와 타입을 전달
+    openMovieModal(movie, 'tmdb');
   };
 
   return (
@@ -81,22 +64,34 @@ export default function SearchScreen() {
         </View>
 
         <View style={styles.searchContainer}>
-          <TextInput style={styles.input} placeholder="영화 제목 검색..." value={searchQuery} onChangeText={setSearchQuery} onBlur={() => Keyboard.dismiss()} />
+          <TextInput 
+            style={styles.input} 
+            placeholder="영화 제목 검색..." 
+            value={searchQuery} 
+            onChangeText={setSearchQuery} 
+            onBlur={() => Keyboard.dismiss()} 
+            clearButtonMode="while-editing"
+          />
         </View>
 
-        <FlatList
-          data={filteredMovies}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <MovieCard movie={item} onPress={() => handleMoviePress(item)} />}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={() => (
-            <View style={styles.placeholderContainer}>
-              <Text style={styles.placeholderText}>
-                {searchQuery.length > 0 ? '검색 결과가 없습니다.' : '검색 결과가 여기에 표시됩니다.'}
-              </Text>
-            </View>
-          )}
-        />
+        {isLoading ? (
+          <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
+        ) : (
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <MovieCard movie={item} onPress={() => handleCardPress(item)} />}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={() => (
+              <View style={styles.placeholderContainer}>
+                <Text style={styles.placeholderText}>
+                  {searchQuery.length > 0 ? '검색 결과가 없습니다.' : '검색 결과가 여기에 표시됩니다.'}
+                </Text>
+              </View>
+            )}
+            onScrollBeginDrag={() => Keyboard.dismiss()}
+          />
+        )}
       </View>
       <MovieModal 
         visible={modalVisible} 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
 
 type MovieCardProps = {
@@ -9,22 +10,36 @@ type MovieCardProps = {
     title: string;
     release: string;
     audience: number;
+    daily_audience?: number;
+    poster_url?: string | null;
   };
   onPress: () => void;
+  displayRank?: number;
+  displayAudience?: number;
+  audienceLabel?: string;
 };
 
-const MovieCard = ({ movie, onPress }: MovieCardProps) => {
+const MovieCard = ({ movie, onPress, displayRank, displayAudience, audienceLabel }: MovieCardProps) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.posterContainer}>
-        <Text style={styles.posterText}>영화포스터</Text>
+        {movie.poster_url ? (
+          <Image
+            source={{ uri: movie.poster_url }}
+            style={styles.posterImage}
+            contentFit="cover"
+            transition={300}
+          />
+        ) : (
+          <Text style={styles.posterText}>이미지 없음</Text>
+        )}
       </View>
       <View style={styles.contentContainer}>
-        <Text style={styles.rank}>RANK {movie.rank}</Text>
+        <Text style={styles.rank}>RANK {displayRank ?? movie.rank}</Text>
         <Text style={styles.title} numberOfLines={2}>{movie.title}</Text>
         <View style={styles.details}>
           <Text style={styles.detailText}>개봉일: {movie.release}</Text>
-          <Text style={styles.detailText}>누적 관객: {(movie.audience / 10000).toLocaleString()}만명</Text>
+          <Text style={styles.detailText}>{audienceLabel ?? '누적 관객'}: {((displayAudience ?? movie.audience) / 10000).toLocaleString()}만명</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -46,9 +61,14 @@ const styles = StyleSheet.create({
   },
   posterContainer: {
     width: 120,
+    height: 180, // Add fixed height for aspect ratio
     backgroundColor: '#E5E7EB', // neutral-200
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  posterImage: {
+    width: '100%',
+    height: '100%',
   },
   posterText: {
     color: Colors.light.textSecondary,
