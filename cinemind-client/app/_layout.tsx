@@ -14,9 +14,10 @@ export default function RootLayout() {
     <AuthProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <Stack>
+          <Stack screenOptions={{ headerBackTitleVisible: false }}>
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="my-ratings" options={{ title: '내가 매긴 평점', headerBackTitle: ' ' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
         </GestureHandlerRootView>

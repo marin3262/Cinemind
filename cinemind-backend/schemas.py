@@ -27,9 +27,15 @@ class Movie(BaseModel):
     release: str
     audience: int # Cumulative audience
     daily_audience: int # Daily audience
+    rank_change: Optional[str] = None # 전일 대비 순위 증감
     poster_url: str | None = None
 
+class WatchProvider(BaseModel):
+    provider_name: str
+    logo_url: str
+
 class MovieDetails(BaseModel): 
+    id: str
     title: str
     release: str | None = None
     runtime: int | None = None
@@ -41,7 +47,9 @@ class MovieDetails(BaseModel):
     backdrop_url: str | None = None
     user_rating: int | None = None
     is_liked: bool | None = None
-    comment: Optional[str] = None # Add optional comment field
+    comment: Optional[str] = None
+    watch_providers: List[WatchProvider] | None = None
+    watch_link: str | None = None
 
 class OnboardingMovie(BaseModel):
     movie_id: int
@@ -56,6 +64,7 @@ class RatingCreate(BaseModel):
     movie_id: str
     rating: int
     comment: Optional[str] = None # Add optional comment field
+    source: str | None = None
 
 class ResponseMessage(BaseModel):
     message: str
@@ -95,7 +104,45 @@ class LikedMovie(BaseModel):
     title: str
     poster_url: str | None = None
 
-class TasteAnalysisReport(BaseModel):
-    taste_title: str
+class Person(BaseModel):
+    id: str
+    name: str
+
+class RatingDistributionItem(BaseModel):
+    rating: int
+    count: int
+
+class TasteAnalysisResponse(BaseModel):
+    total_ratings: int
+    analysis_title: str
     top_genres: List[str]
-    preferred_era: str | None = None
+    rating_distribution: List[RatingDistributionItem]
+    top_actors: List[Person]
+    top_directors: List[Person]
+
+class BoxOfficeBattleResponse(BaseModel):
+    korean: Optional[Movie] = None
+    foreign: Optional[Movie] = None
+
+# --- Person Details ---
+class FilmoItem(BaseModel):
+    movieCd: str
+    movieNm: str
+    category: str | None = None
+
+class PersonDetails(BaseModel):
+    personCd: str
+    personNm: str
+    repRoleNm: str # 대표 분야 (배우, 감독 등)
+    filmos: List[FilmoItem]
+
+class RelatedMovie(BaseModel):
+    id: str
+    title: str
+
+class WeeklyPopularPerson(BaseModel):
+    id: str
+    name: str
+    profile_url: Optional[str] = None
+    related_movies: List[RelatedMovie]
+

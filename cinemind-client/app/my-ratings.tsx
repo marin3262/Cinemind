@@ -60,80 +60,75 @@ export default function MyRatingsScreen() {
     );
 
     // Use the custom hook for all modal logic
-    const { 
-        modalVisible, 
-        selectedMovie, 
-        isDetailLoading, 
-        handleMoviePress, 
-        handleCloseModal, 
-        handleSaveRating 
-    } = useMovieModal({
-        onRatingSaved: fetchAndGroupRatings // Pass the refetch function as a callback
-    });
-
-    const renderContent = () => {
-        if (isLoading) {
-            return <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />;
-        }
-        if (error) {
-            return <Text style={styles.infoText}>{error}</Text>;
-        }
-        
-        const sortedRatingKeys = Object.keys(groupedRatings).map(Number).sort((a, b) => b - a);
-
-        if (sortedRatingKeys.length === 0) {
-            return <Text style={styles.infoText}>아직 평가한 영화가 없습니다.</Text>;
-        }
-
-        return (
-            <View>
-                {sortedRatingKeys.map(rating => (
-                    <View key={rating} style={styles.ratingSection}>
-                        <View style={styles.ratingHeader}>
-                            {[...Array(rating)].map((_, i) => <FontAwesome key={i} name="star" size={20} color="#FFD700" />)}
-                            <Text style={styles.ratingTitle}>{rating}점</Text>
+        const {
+            modalVisible,
+            selectedMovie,
+            isDetailLoading,
+            handleMoviePress,
+            handleCloseModal,
+            handleSaveRating,
+            handleToggleLike
+        } = useMovieModal({
+            onRatingSaved: fetchAndGroupRatings // Pass the refetch function as a callback
+        });
+    
+        const renderContent = () => {
+            if (isLoading) {
+                return <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />;
+            }
+            if (error) {
+                return <Text style={styles.infoText}>{error}</Text>;
+            }
+            
+            const sortedRatingKeys = Object.keys(groupedRatings).map(Number).sort((a, b) => b - a);
+    
+            if (sortedRatingKeys.length === 0) {
+                return <Text style={styles.infoText}>아직 평가한 영화가 없습니다.</Text>;
+            }
+    
+            return (
+                <View>
+                    {sortedRatingKeys.map(rating => (
+                        <View key={rating} style={styles.ratingSection}>
+                            <View style={styles.ratingHeader}>
+                                {[...Array(rating)].map((_, i) => <FontAwesome key={i} name="star" size={20} color="#FFD700" />)}
+                                <Text style={styles.ratingTitle}>{rating}점</Text>
+                            </View>
+                            <View style={styles.movieGrid}>
+                                {groupedRatings[rating].map(movie => (
+                                    <TouchableOpacity 
+                                        key={movie.movie_id} 
+                                        style={styles.movieCard} 
+                                        onPress={() => handleMoviePress({ id: movie.movie_id, ...movie })}
+                                    >
+                                        <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
+                                        <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
-                        <View style={styles.movieGrid}>
-                            {groupedRatings[rating].map(movie => (
-                                <TouchableOpacity 
-                                    key={movie.movie_id} 
-                                    style={styles.movieCard} 
-                                    onPress={() => handleMoviePress({ id: movie.movie_id, ...movie })}
-                                >
-                                    <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                                    <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-                ))}
-            </View>
-        );
-    };
-
-    return (
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <FontAwesome name="arrow-left" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
-                    <Text style={styles.title}>내가 매긴 평점</Text>
+                    ))}
                 </View>
-                {renderContent()}
-            </ScrollView>
-            {selectedMovie && (
-                <MovieModal 
-                    visible={modalVisible} 
-                    onClose={handleCloseModal} 
-                    movie={selectedMovie} 
-                    isDetailLoading={isDetailLoading} 
-                    onSaveRating={handleSaveRating}
-                />
-            )}
-        </SafeAreaView>
-    );
-}
+            );
+        };
+    
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView style={styles.container}>
+                    {renderContent()}
+                </ScrollView>
+                {selectedMovie && (
+                    <MovieModal 
+                        visible={modalVisible} 
+                        onClose={handleCloseModal} 
+                        movie={selectedMovie} 
+                        isDetailLoading={isDetailLoading} 
+                        onSaveRating={handleSaveRating}
+                        onToggleLike={handleToggleLike}
+                    />
+                )}
+            </SafeAreaView>
+        );}
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: 'white' },

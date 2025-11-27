@@ -20,6 +20,8 @@ export const Colors = {
     textSecondary: '#6b7280', // neutral-500
     card: '#FFFFFF', // white
     border: '#D1D5DB', // neutral-300
+    error: '#EF4444', // red-500
+    secondary: '#E5E7EB', // neutral-200
   },
   dark: {
     text: '#ECEDEE',
@@ -32,6 +34,8 @@ export const Colors = {
     textSecondary: '#9BA1A6',
     card: '#1F2937',
     border: '#4B5563',
+    error: '#DC2626', // red-600
+    secondary: '#374151', // neutral-700
   },
 };
 

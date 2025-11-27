@@ -4,7 +4,7 @@ import PosterCard from './PosterCard';
 import { Colors } from '@/constants/theme';
 
 type MovieCarouselProps = {
-  title: string;
+  title?: string;
   movies: any[];
   onMoviePress: (movie: any) => void;
 };
@@ -16,7 +16,7 @@ const MovieCarousel = ({ title, movies, onMoviePress }: MovieCarouselProps) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      {title && <Text style={styles.title}>{title}</Text>}
       <FlatList
         data={movies}
         renderItem={({ item }) => (

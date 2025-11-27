@@ -24,17 +24,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
-        options={{
-          title: '둘러보기',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="compass" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="recommend"
+        name="discover"
         options={{
           title: '추천',
           tabBarIcon: ({ color }) => <FontAwesome size={28} name="star" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="trends"
+        options={{
+          title: '트렌드',
+          tabBarIcon: ({ color }) => <FontAwesome size={24} name="line-chart" color={color} />,
         }}
       />
       <Tabs.Screen

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
@@ -8,20 +8,24 @@ import { authenticatedFetch } from '@/utils/api';
 import API_BASE_URL from '@/constants/config';
 import TasteAnalysisCard from '@/components/TasteAnalysisCard';
 
-// Define the type for a movie object in the lists
 type MovieListItem = {
     movie_id: string;
     title: string;
     poster_url: string | null;
-    rating?: number; // Optional for liked movies
+    rating?: number;
 };
 
-// Define the type for TasteAnalysisReport
-type TasteAnalysisReport = {
-    taste_title: string;
-    top_genres: string[];
-    preferred_era: string | null;
-};
+interface RatingDistributionItem {
+  rating: number;
+  count: number;
+}
+
+interface TasteAnalysisResponse {
+  total_ratings: number;
+  analysis_title: string;
+  top_genres: string[];
+  rating_distribution: RatingDistributionItem[];
+}
 
 export default function ProfileScreen() {
     const { onLogout, authState } = useAuth();
@@ -30,98 +34,46 @@ export default function ProfileScreen() {
 
     const [ratedMovies, setRatedMovies] = useState<MovieListItem[]>([]);
     const [likedMovies, setLikedMovies] = useState<MovieListItem[]>([]);
-    const [tasteAnalysisReport, setTasteAnalysisReport] = useState<TasteAnalysisReport | null>(null);
+    const [analysis, setAnalysis] = useState<TasteAnalysisResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // useFocusEffect will re-run the fetch logic every time the screen comes into focus
+    const fetchProfileData = useCallback(async () => {
+        if (ratedMovies.length === 0 && likedMovies.length === 0) {
+            setIsLoading(true);
+        }
+        setError(null);
+        try {
+            const [ratingsResponse, likesResponse, tasteAnalysisResponse] = await Promise.all([
+                authenticatedFetch(`${API_BASE_URL}/users/me/ratings`),
+                authenticatedFetch(`${API_BASE_URL}/users/me/likes`),
+                authenticatedFetch(`${API_BASE_URL}/users/me/taste-analysis`)
+            ]);
+
+            if (!ratingsResponse.ok || !likesResponse.ok || !tasteAnalysisResponse.ok) {
+                throw new Error('프로필 정보를 불러오는 데 실패했습니다.');
+            }
+
+            const ratingsData = await ratingsResponse.json();
+            const likesData = await likesResponse.json();
+            const tasteAnalysisData: TasteAnalysisResponse = await tasteAnalysisResponse.json();
+            
+            setRatedMovies(ratingsData);
+            setLikedMovies(likesData);
+            setAnalysis(tasteAnalysisData);
+
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ratedMovies.length, likedMovies.length]);
+
     useFocusEffect(
         useCallback(() => {
-            const fetchProfileData = async () => {
-                setIsLoading(true);
-                setError(null);
-                try {
-                    const [ratingsResponse, likesResponse, tasteAnalysisResponse] = await Promise.all([
-                        authenticatedFetch(`${API_BASE_URL}/users/me/ratings`),
-                        authenticatedFetch(`${API_BASE_URL}/users/me/likes`),
-                        authenticatedFetch(`${API_BASE_URL}/users/me/taste-analysis`)
-                    ]);
-
-                    if (!ratingsResponse.ok || !likesResponse.ok || !tasteAnalysisResponse.ok) {
-                        throw new Error('프로필 정보를 불러오는 데 실패했습니다.');
-                    }
-
-                    const ratingsData = await ratingsResponse.json();
-                    const likesData = await likesResponse.json();
-                    const tasteAnalysisData: TasteAnalysisReport = await tasteAnalysisResponse.json();
-                    
-                    setRatedMovies(ratingsData);
-                    setLikedMovies(likesData);
-                    setTasteAnalysisReport(tasteAnalysisData);
-
-                } catch (e: any) {
-                    setError(e.message);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
             fetchProfileData();
-
-            return () => {};
-        }, [])
+        }, [fetchProfileData])
     );
-
-    const renderRatedMovies = () => {
-        if (isLoading) {
-            return <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 20 }} />;
-        }
-
-        if (error) {
-            return <Text style={styles.errorText}>{error}</Text>;
-        }
-
-        if (ratedMovies.length === 0) {
-            return <Text style={styles.infoText}>아직 평가한 영화가 없습니다.</Text>;
-        }
-
-        return (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                {ratedMovies.map((movie) => (
-                    <View key={`rated-${movie.movie_id}`} style={styles.movieCard}>
-                        <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                        <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
-                        <View style={styles.ratingContainer}>
-                            <FontAwesome name="star" size={16} color="#FFD700" />
-                            <Text style={styles.ratingText}>{movie.rating}점</Text>
-                        </View>
-                    </View>
-                ))}
-            </ScrollView>
-        );
-    };
-
-    const renderLikedMovies = () => {
-        // Loading and error are handled by renderRatedMovies
-        if (isLoading || error) {
-            return null;
-        }
-
-        if (likedMovies.length === 0) {
-            return <Text style={styles.infoText}>아직 찜한 영화가 없습니다.</Text>;
-        }
-
-        return (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                {likedMovies.map((movie) => (
-                    <View key={`liked-${movie.movie_id}`} style={styles.movieCard}>
-                        <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                        <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
-                    </View>
-                ))}
-            </ScrollView>
-        );
-    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -137,38 +89,66 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
-                {/* Taste Analysis Card */}
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginVertical: 20 }} />
+                    <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
                 ) : error ? (
-                    <Text style={styles.errorText}>{error}</Text>
-                ) : tasteAnalysisReport && (
-                    <TasteAnalysisCard 
-                        tasteTitle={tasteAnalysisReport.taste_title}
-                        topGenres={tasteAnalysisReport.top_genres}
-                        preferredEra={tasteAnalysisReport.preferred_era}
-                    />
+                    <Text style={styles.infoText}>{error}</Text>
+                ) : (
+                    <>
+                        <TasteAnalysisCard analysis={analysis} />
+
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>내가 평가한 영화</Text>
+                                <TouchableOpacity onPress={() => router.push('/my-ratings')}>
+                                    <Text style={styles.viewMoreButton}>더보기</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {ratedMovies.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                                    {ratedMovies.map((movie) => (
+                                        <View key={`rated-${movie.movie_id}`} style={styles.movieCard}>
+                                            <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
+                                            <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
+                                            <View style={styles.ratingContainer}>
+                                                <FontAwesome name="star" size={16} color="#FFD700" />
+                                                <Text style={styles.ratingText}>{movie.rating}점</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <Text style={styles.infoText}>아직 평가한 영화가 없어요.</Text>
+                            )}
+                        </View>
+
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>찜한 영화</Text>
+                                <TouchableOpacity onPress={() => router.push('/my-likes')}>
+                                    <Text style={styles.viewMoreButton}>더보기</Text>
+                                </TouchableOpacity>
+                            </View>
+                            {likedMovies.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                                    {likedMovies.map((movie) => (
+                                        <View key={`liked-${movie.movie_id}`} style={styles.movieCard}>
+                                            <View style={styles.posterImageContainer}>
+                                                <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
+                                                <View style={styles.bookmarkIconContainer}>
+                                                    <FontAwesome name="bookmark" size={24} color={Colors.light.primary} />
+                                                </View>
+                                            </View>
+                                            <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <Text style={styles.infoText}>아직 찜한 영화가 없어요.</Text>
+                            )}
+                        </View>
+                    </>
                 )}
-
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>내가 평가한 영화</Text>
-                        <TouchableOpacity onPress={() => router.push('/my-ratings')}>
-                            <Text style={styles.viewMoreButton}>더보기</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {renderRatedMovies()}
-                </View>
-
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>찜한 영화</Text>
-                        <TouchableOpacity onPress={() => router.push('/my-likes')}>
-                            <Text style={styles.viewMoreButton}>더보기</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {renderLikedMovies()}
-                </View>
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
@@ -275,6 +255,22 @@ const styles = StyleSheet.create({
         marginHorizontal: 8,
         height: 34, // Allow for two lines
     },
+    posterImageContainer: {
+        position: 'relative',
+        width: '100%',
+        height: 200,
+        borderTopLeftRadius: 8,
+        borderTopRightRadius: 8,
+        backgroundColor: '#E5E7EB',
+    },
+    bookmarkIconContainer: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderRadius: 12,
+        padding: 4,
+    },
     ratingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -297,6 +293,10 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
         minHeight: 50,
+        width: '100%',
+        paddingVertical: 20,
+        backgroundColor: 'white',
+        borderRadius: 12,
     },
     buttonContainer: {
         marginTop: 20,

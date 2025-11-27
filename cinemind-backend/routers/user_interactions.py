@@ -43,32 +43,45 @@ def get_user_activity_for_movie(movie_id: str = Query(...), current_user: dict =
 @router.post("/ratings", response_model=ResponseMessage)
 async def create_or_update_rating(rating_data: RatingCreate, request: Request, current_user: dict = Depends(get_current_user)):
     """
-    영화에 대한 평점을 생성하거나 업데이트합니다. (Pydantic 우회)
+    영화에 대한 평점을 생성하거나 업데이트합니다. (상세 디버깅 모드)
     """
+    print("\n--- [DEBUG] /ratings endpoint triggered ---")
     try:
         user_id = current_user.id
         movie_id = rating_data.movie_id
         
-        # Pydantic을 우회하여 원시 데이터에서 코멘트를 직접 가져옵니다.
         raw_body = await request.json()
-        
+        print(f"[DEBUG] 1. Raw request body from client: {raw_body}")
+
+        source = raw_body.get('source', 'in_app')
+        print(f"[DEBUG] 2. Extracted 'source' value: '{source}'")
+
         # 1. 먼저 업데이트 시도
         update_data = {
             'rating': rating_data.rating,
+            'source': source
         }
+        print(f"[DEBUG] 3. Preparing to UPDATE with data: {update_data}")
         update_result = supabase_admin.table('user_ratings').update(update_data).eq('user_id', user_id).eq('movie_id', movie_id).execute()
 
         # 2. 업데이트된 데이터가 없으면 새로 삽입
         if not update_result.data:
+            print("[DEBUG] 4. No existing record, preparing to INSERT.")
             insert_data = {
                 'user_id': user_id,
                 'movie_id': movie_id,
                 'rating': rating_data.rating,
+                'source': source
             }
+            print(f"[DEBUG] 5. Preparing to INSERT with data: {insert_data}")
             supabase_admin.table('user_ratings').insert(insert_data).execute()
+        else:
+            print("[DEBUG] 4. UPDATE successful.")
 
+        print("--- [DEBUG] /ratings endpoint finished successfully ---\n")
         return {"message": "평점이 성공적으로 저장되었습니다."}
     except Exception as e:
+        print(f"[DEBUG] EXCEPTION in /ratings: {str(e)}\n")
         raise HTTPException(status_code=500, detail=f"평점 저장 중 오류 발생: {str(e)}")
 
 @router.post("/movies/{movie_id}/like", response_model=ResponseMessage)

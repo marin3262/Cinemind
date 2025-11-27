@@ -7,7 +7,7 @@ const CARD_WIDTH = (Dimensions.get('window').width - 48) / 2.5; // Show 2.5 card
 
 type PosterCardProps = {
   movie: {
-    id: number;
+    id: string | number;
     title: string;
     poster_url?: string | null;
   };

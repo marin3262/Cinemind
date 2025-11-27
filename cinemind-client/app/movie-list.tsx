@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getMoviesByApi } from '@/utils/api';
+import { getMoviesByApi, Movie } from '@/utils/api';
 import PosterCard from '@/components/PosterCard';
-import { Movie } from '@/utils/api';
+import MovieModal from '@/components/MovieModal';
+import { useMovieModal } from '@/hooks/useMovieModal';
 
 const MovieListScreen = () => {
   const { title, apiUrl } = useLocalSearchParams<{ title: string; apiUrl: string }>();
@@ -12,6 +13,24 @@ const MovieListScreen = () => {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // 화면 너비 계산
+  const screenWidth = Dimensions.get('window').width;
+  const numColumns = 3;
+  const horizontalPadding = 16; // listContainer의 좌우 패딩 합
+  const cardMargin = 8; // 각 카드 사이의 여백
+  const posterWidth = (screenWidth - horizontalPadding * 2 - cardMargin * (numColumns - 1)) / numColumns;
+
+
+  const {
+    modalVisible,
+    selectedMovie,
+    isDetailLoading,
+    handleMoviePress,
+    handleCloseModal,
+    handleSaveRating,
+    handleToggleLike,
+  } = useMovieModal();
 
   const fetchMovies = useCallback(async () => {
     if (loading || !hasMore || !apiUrl) return;
@@ -24,13 +43,13 @@ const MovieListScreen = () => {
         setPage((prevPage) => prevPage + 1);
       } else {
         setHasMore(false);
-      }
+      } 
     } catch (error) {
       console.error('Failed to fetch movies:', error);
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, page, loading, hasMore]);
+  }, [apiUrl, page, loading, hasMore, screenWidth]); // screenWidth 의존성 추가
 
   useEffect(() => {
     fetchMovies();
@@ -46,9 +65,17 @@ const MovieListScreen = () => {
       <Text style={styles.title}>{title}</Text>
       <FlatList
         data={movies}
-        renderItem={({ item }) => <PosterCard movie={item} />}
+        renderItem={({ item }) => (
+          <View style={{ width: posterWidth + cardMargin, marginBottom: cardMargin }}>
+            <PosterCard 
+              movie={item} 
+              onPress={() => handleMoviePress(item, 'tmdb')} 
+              style={{ width: posterWidth, height: posterWidth * 1.5 }} // 포스터 비율 유지
+            />
+          </View>
+        )}
         keyExtractor={(item, index) => `${item.id}-${index}`}
-        numColumns={3}
+        numColumns={numColumns}
         contentContainerStyle={styles.listContainer}
         onEndReached={fetchMovies}
         onEndReachedThreshold={0.5}
@@ -59,10 +86,17 @@ const MovieListScreen = () => {
           </View>
         )}
       />
+      <MovieModal
+        visible={modalVisible}
+        onClose={handleCloseModal}
+        movie={selectedMovie}
+        isDetailLoading={isDetailLoading}
+        onSaveRating={handleSaveRating}
+        onToggleLike={handleToggleLike}
+      />
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

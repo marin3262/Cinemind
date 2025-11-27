@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import routers from the routers directory
-from routers import auth, movies, users, utils, user_interactions
+from routers import auth, movies, users, utils, user_interactions, recommendations, people
 from schemas import ResponseMessage
 from recommendation_service import train_and_save_similarity_matrix
 
@@ -44,7 +44,9 @@ app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(users.router)
 app.include_router(utils.router)
-app.include_router(user_interactions.router) # 새로 추가된 라우터
+app.include_router(user_interactions.router)
+app.include_router(recommendations.router)
+app.include_router(people.router)
 
 # --- Root Endpoint ---
 @app.get("/", response_model=ResponseMessage, tags=["Default"])

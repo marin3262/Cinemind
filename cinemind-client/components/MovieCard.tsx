@@ -5,13 +5,14 @@ import { Colors } from '@/constants/theme';
 
 type MovieCardProps = {
   movie: {
-    id: number;
-    rank: number;
+    id: number | string;
     title: string;
-    release: string;
-    audience: number;
-    daily_audience?: number;
     poster_url?: string | null;
+    rank?: number;
+    release?: string;
+    release_date?: string;
+    audience?: number;
+    daily_audience?: number;
   };
   onPress: () => void;
   displayRank?: number;
@@ -20,6 +21,10 @@ type MovieCardProps = {
 };
 
 const MovieCard = ({ movie, onPress, displayRank, displayAudience, audienceLabel }: MovieCardProps) => {
+  const hasBoxOfficeInfo = displayRank || movie.rank;
+  const releaseDate = movie.release || movie.release_date;
+  const audienceInfo = displayAudience ?? movie.audience;
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.posterContainer}>
@@ -31,16 +36,25 @@ const MovieCard = ({ movie, onPress, displayRank, displayAudience, audienceLabel
             transition={300}
           />
         ) : (
-          <Text style={styles.posterText}>이미지 없음</Text>
+          <View style={styles.posterPlaceholder}>
+            <Text style={styles.posterText}>이미지 없음</Text>
+          </View>
         )}
       </View>
       <View style={styles.contentContainer}>
-        <Text style={styles.rank}>RANK {displayRank ?? movie.rank}</Text>
+        {hasBoxOfficeInfo ? (
+          <Text style={styles.rank}>RANK {displayRank ?? movie.rank}</Text>
+        ) : null}
         <Text style={styles.title} numberOfLines={2}>{movie.title}</Text>
-        <View style={styles.details}>
-          <Text style={styles.detailText}>개봉일: {movie.release}</Text>
-          <Text style={styles.detailText}>{audienceLabel ?? '누적 관객'}: {((displayAudience ?? movie.audience) / 10000).toLocaleString()}만명</Text>
-        </View>
+        
+        {(releaseDate || (audienceInfo !== undefined && audienceLabel)) ? (
+          <View style={styles.details}>
+            {releaseDate ? <Text style={styles.detailText}>개봉일: {releaseDate}</Text> : null}
+            {(audienceInfo !== undefined && audienceLabel) ? (
+              <Text style={styles.detailText}>{audienceLabel}: {Math.round(audienceInfo / 10000).toLocaleString()}만명</Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -61,14 +75,20 @@ const styles = StyleSheet.create({
   },
   posterContainer: {
     width: 120,
-    height: 180, // Add fixed height for aspect ratio
-    backgroundColor: '#E5E7EB', // neutral-200
+    height: 180,
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   posterImage: {
     width: '100%',
     height: '100%',
+  },
+  posterPlaceholder: {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
   },
   posterText: {
     color: Colors.light.textSecondary,

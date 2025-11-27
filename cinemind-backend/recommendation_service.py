@@ -9,6 +9,117 @@ from kobis_service import get_daily_box_office, get_movie_details
 from collections import Counter
 from typing import List, Dict, Optional
 
+from collections import Counter
+from typing import List, Dict, Optional, Tuple
+
+# --- NEW HYBRID RECOMMENDATION LOGIC FOR HOME SCREEN ---
+
+def _get_similarity_data() -> Tuple[Dict, Dict]:
+    """Helper to fetch cached similarity data from the DB."""
+    try:
+        collab_sim_res = supabase_admin.table('cached_lists').select('data').eq('list_type', "movie_top_k_similarities").single().execute()
+        collab_similarities = json.loads(collab_sim_res.data['data']) if collab_sim_res.data and collab_sim_res.data.get('data') else {}
+    except Exception:
+        collab_similarities = {}
+
+    try:
+        content_sim_res = supabase_admin.table('cached_lists').select('data').eq('list_type', "content_similar_top_k").single().execute()
+        content_similarities = json.loads(content_sim_res.data['data']) if content_sim_res.data and content_sim_res.data.get('data') else {}
+    except Exception:
+        content_similarities = {}
+        
+    return collab_similarities, content_similarities
+
+def _calculate_hybrid_scores(user_id: str) -> Tuple[Optional[Counter], set]:
+    """Calculates hybrid recommendation scores for all movies based on a user's ratings."""
+    collab_similarities, content_similarities = _get_similarity_data()
+    if not collab_similarities and not content_similarities:
+        print("[Warning] Similarity data not found. Cannot calculate taste scores.")
+        return None, set()
+
+    ratings_response = supabase_admin.table('user_ratings').select('movie_id, rating').eq('user_id', user_id).execute()
+    user_ratings = {item['movie_id']: item['rating'] for item in ratings_response.data}
+    seen_movie_ids = set(user_ratings.keys())
+    
+    highly_rated_movies = {movie_id: rating for movie_id, rating in user_ratings.items() if rating >= 4}
+    if not highly_rated_movies:
+        return Counter(), seen_movie_ids
+
+    hybrid_scores = Counter()
+    COLLAB_WEIGHT = 0.6
+    CONTENT_WEIGHT = 0.4
+
+    for movie_id, rating in highly_rated_movies.items():
+        # Collaborative filtering scores
+        if movie_id in collab_similarities:
+            for similar_movie in collab_similarities.get(movie_id, []):
+                hybrid_scores[similar_movie["id"]] += similar_movie["score"] * (rating - 3.5) * COLLAB_WEIGHT
+        
+        # Content-based filtering scores
+        if movie_id in content_similarities:
+            for similar_movie in content_similarities.get(movie_id, []):
+                hybrid_scores[similar_movie["id"]] += similar_movie["score"] * (rating - 3.5) * CONTENT_WEIGHT
+    
+    # Filter out movies the user has already seen
+    for seen_id in seen_movie_ids:
+        if seen_id in hybrid_scores:
+            del hybrid_scores[seen_id]
+            
+    return hybrid_scores, seen_movie_ids
+
+async def get_home_hybrid_recommendations(user_id: str, mood_keywords: List[str], top_n: int = 20) -> List[str]:
+    """
+    Generates hybrid recommendations for the home screen by re-ranking mood-based
+    candidates with the user's personal taste scores.
+    """
+    from tmdb_service import get_movies_for_home_mood
+    
+    print(f"--- 홈 화면 하이브리드 추천 생성 시작 (사용자: {user_id}, 기분: {mood_keywords}) ---")
+    
+    scores, seen_movie_ids = _calculate_hybrid_scores(user_id)
+    print(f"[DEBUG] 1. 사용자 평점 기반 취향 점수 계산 완료. (본 영화: {len(seen_movie_ids)}편)")
+    
+    if scores is None:
+        print("[DEBUG] 2. 취향 점수 모델을 찾을 수 없어, TMDB 인기 영화로 대체합니다.")
+        movies = await get_movies_for_home_mood(mood_keywords)
+        return [str(m['id']) for m in movies]
+
+    # Get mood-based candidates
+    mood_candidate_movies = await get_movies_for_home_mood(mood_keywords)
+    print(f"[DEBUG] 2. 선택한 기분({mood_keywords})에 맞는 영화 후보군 {len(mood_candidate_movies)}편을 TMDB에서 가져옴.")
+    
+    if not mood_candidate_movies:
+        return []
+
+    # Re-rank candidates based on user's taste scores
+    reranked_movies = []
+    for movie in mood_candidate_movies:
+        movie_id = str(movie['id'])
+        if movie_id not in seen_movie_ids:
+            score = scores.get(movie_id, 0)
+            reranked_movies.append((movie, score))
+    
+    print(f"[DEBUG] 3. 이미 본 영화를 제외하고, 추천 후보군 {len(reranked_movies)}편이 남음.")
+            
+    # Sort by personal taste score (descending)
+    reranked_movies.sort(key=lambda x: x[1], reverse=True)
+    
+    # Extract IDs from the sorted list
+    final_recommendation_ids = [str(movie_tuple[0]['id']) for movie_tuple in reranked_movies]
+    print(f"[DEBUG] 4. 취향 점수 순으로 정렬된 최종 후보군: {len(final_recommendation_ids)}편")
+    
+    # If results are still not enough, use fallback
+    if len(final_recommendation_ids) < top_n:
+        print(f"[DEBUG] 5. 추천 결과가 {top_n}편보다 적어, 대체 추천 로직을 실행합니다.")
+        fallback_recs = await get_fallback_recommendations(user_id, seen_movie_ids.union(set(final_recommendation_ids)), top_n)
+        final_recommendation_ids.extend(fallback_recs)
+        final_recommendation_ids = list(dict.fromkeys(final_recommendation_ids)) # 중복 제거
+
+    final_results = final_recommendation_ids[:top_n]
+    print(f"[DEBUG] 6. 최종 추천 영화 목록 ({len(final_results)}편): {final_results}")
+    return final_results
+
+
 def train_and_save_similarity_matrix(top_k: int = 50):
     """
     Fetches all user ratings, calculates movie-movie similarity, and saves only the

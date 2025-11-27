@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { authenticatedFetch } from '@/utils/api';
 import API_BASE_URL from '@/constants/config';
+import * as Haptics from 'expo-haptics'; // Add this import
 
 interface UseMovieModalProps {
     onRatingSaved?: () => void;
@@ -52,7 +53,8 @@ export function useMovieModal({ onRatingSaved }: UseMovieModalProps = {}) {
                 method: 'POST',
                 body: JSON.stringify({ 
                     movie_id: String(movieId), 
-                    rating: rating
+                    rating: rating,
+                    source: 'in_app' // 출처 명시
                 }),
             });
             if (!response.ok) {
@@ -62,9 +64,27 @@ export function useMovieModal({ onRatingSaved }: UseMovieModalProps = {}) {
             handleCloseModal();
             onRatingSaved?.();
             Alert.alert("성공", "평점이 저장되었습니다.");
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Add haptic feedback here
 
         } catch (e: any) {
             Alert.alert("오류", e.message);
+        }
+    };
+
+    const handleToggleLike = async (movieId: string | number, isLiked: boolean) => {
+        try {
+          const response = await authenticatedFetch(`${API_BASE_URL}/movies/${movieId}/like`, {
+            method: isLiked ? 'POST' : 'DELETE',
+          });
+          if (!response.ok) {
+            throw new Error('찜하기 상태 변경에 실패했습니다.');
+          }
+          // Optimistically update the UI in the modal
+          setSelectedMovie((prev: any) => ({ ...prev, is_liked: isLiked }));
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Add haptic feedback here
+        } catch (e: any) {
+          Alert.alert("오류", e.message);
+          console.error(e);
         }
     };
 
@@ -75,5 +95,6 @@ export function useMovieModal({ onRatingSaved }: UseMovieModalProps = {}) {
         handleMoviePress,
         handleCloseModal,
         handleSaveRating,
+        handleToggleLike,
     };
 }

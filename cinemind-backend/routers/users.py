@@ -3,9 +3,10 @@ from typing import List
 from collections import Counter
 from datetime import datetime
 
-from schemas import UserRatingWithMovie, UserActivityStatus, LikedMovie, TasteAnalysisReport
+from schemas import UserRatingWithMovie, UserActivityStatus, LikedMovie, TasteAnalysisResponse, RatingDistributionItem, Person
 from auth_handler import get_current_user
 from supabase_client import supabase_admin
+from kobis_service import search_person_by_name
 
 router = APIRouter(
     prefix="/users",
@@ -90,84 +91,107 @@ def get_my_likes(current_user: dict = Depends(get_current_user)):
         print(f"Error fetching user likes: {e}")
         raise HTTPException(status_code=500, detail="찜한 목록을 가져오는 중 오류가 발생했습니다.")
 
-@router.get("/me/taste-analysis", response_model=TasteAnalysisReport)
+@router.get("/me/taste-analysis", response_model=TasteAnalysisResponse)
 def get_taste_analysis(current_user: dict = Depends(get_current_user)):
     """
     현재 로그인한 사용자의 영화 취향을 분석하여 리포트를 반환합니다.
+    (선호 배우/감독 ID 조회 기능 추가)
     """
     user_id = current_user.id
-    all_movie_ids = set()
-
+    
     try:
-        # 1. 사용자가 평가한 영화 ID 수집
-        ratings_res = supabase_admin.table('user_ratings').select('movie_id').eq('user_id', user_id).execute()
-        for item in ratings_res.data:
-            all_movie_ids.add(item['movie_id'])
-
-        # 2. 사용자가 찜한 영화 ID 수집
-        likes_res = supabase_admin.table('user_likes').select('movie_id').eq('user_id', user_id).execute()
-        for item in likes_res.data:
-            all_movie_ids.add(item['movie_id'])
-
-        if not all_movie_ids:
-            return TasteAnalysisReport(
-                taste_title="아직 영화 취향을 분석할 데이터가 부족해요!",
+        # 1. 사용자가 '평가'한 영화와 별점 정보 가져오기 (4점 이상)
+        ratings_res = supabase_admin.table('user_ratings').select('movie_id, rating').eq('user_id', user_id).gte('rating', 4).execute()
+        
+        if not ratings_res.data or len(ratings_res.data) < 3:
+            return TasteAnalysisResponse(
+                total_ratings=len(ratings_res.data) if ratings_res.data else 0,
+                analysis_title="아직 분석할 데이터가 부족해요!",
                 top_genres=[],
-                preferred_era=None
+                rating_distribution=[],
+                top_actors=[],
+                top_directors=[]
             )
+        
+        total_ratings = len(ratings_res.data)
+        rated_movie_ids = [item['movie_id'] for item in ratings_res.data]
 
-        # 3. 수집된 영화 ID로 영화 상세 정보(장르, 개봉일) 가져오기
-        movies_res = supabase_admin.table('movies').select('id, genres, release_date').in_('id', list(all_movie_ids)).execute()
+        # 2. 별점 분포도 분석
+        full_ratings_res = supabase_admin.table('user_ratings').select('rating').eq('user_id', user_id).execute()
+        rating_counts = Counter(item['rating'] for item in full_ratings_res.data)
+        rating_distribution = [
+            RatingDistributionItem(rating=r, count=rating_counts.get(r, 0))
+            for r in range(1, 6)
+        ]
+
+        # 3. 평가한 영화들의 상세 정보(장르, 배우, 감독) 가져오기
+        movies_res = supabase_admin.table('movies').select('genres, actors, directors').in_('id', rated_movie_ids).execute()
         
         if not movies_res.data:
-            return TasteAnalysisReport(
-                taste_title="아직 영화 취향을 분석할 데이터가 부족해요!",
+             return TasteAnalysisResponse(
+                total_ratings=total_ratings,
+                analysis_title="취향을 분석하는 중이에요!",
                 top_genres=[],
-                preferred_era=None
+                rating_distribution=rating_distribution,
+                top_actors=[],
+                top_directors=[]
             )
 
+        # 4. 장르, 배우, 감독 카운팅
         genre_counter = Counter()
-        era_counter = Counter()
+        actor_counter = Counter()
+        director_counter = Counter()
 
         for movie in movies_res.data:
-            # 장르 분석
-            if movie.get('genres'):
-                # genres 필드가 [{'genreNm': '액션'}, ...] 형태일 수 있음
-                for genre_item in movie['genres']:
-                    if isinstance(genre_item, dict) and 'genreNm' in genre_item:
-                        genre_counter[genre_item['genreNm']] += 1
-                    elif isinstance(genre_item, str): # 이미 문자열 리스트인 경우
-                        genre_counter[genre_item] += 1
-
-            # 시대 분석
-            release_date_str = movie.get('release_date')
-            if release_date_str and len(release_date_str) >= 4:
-                try:
-                    year = int(release_date_str[:4])
-                    era = f"{(year // 10) * 10}년대"
-                    era_counter[era] += 1
-                except ValueError:
-                    pass # 연도 파싱 오류 무시
+            # 장르
+            genres = movie.get('genres') or []
+            for genre_item in genres:
+                genre_name = genre_item.get('name') if isinstance(genre_item, dict) else genre_item
+                if genre_name: genre_counter[genre_name] += 1
+            
+            # 배우
+            actors = movie.get('actors') or []
+            for actor_item in actors:
+                actor_name = actor_item if isinstance(actor_item, str) else actor_item.get('name') if isinstance(actor_item, dict) else None
+                if actor_name: actor_counter[actor_name] += 1
+                
+            # 감독
+            directors = movie.get('directors') or []
+            for director_item in directors:
+                director_name = director_item if isinstance(director_item, str) else director_item.get('name') if isinstance(director_item, dict) else None
+                if director_name: director_counter[director_name] += 1
 
         top_genres = [genre for genre, count in genre_counter.most_common(3)]
-        preferred_era = era_counter.most_common(1)[0][0] if era_counter else None
-
-        # 취향 타이틀 생성
-        taste_title_parts = []
-        if top_genres:
-            taste_title_parts.append(f"{top_genres[0]} 영화를 좋아하는")
-        if preferred_era:
-            taste_title_parts.append(f"{preferred_era} 시네필")
+        top_actors_names = [actor for actor, count in actor_counter.most_common(5)]
+        top_directors_names = [director for director, count in director_counter.most_common(3)]
         
-        if not taste_title_parts:
-            taste_title = "아직 영화 취향을 분석할 데이터가 부족해요!"
-        else:
-            taste_title = " ".join(taste_title_parts) + "님"
+        # 5. 이름으로 ID 조회 (매우 비효율적, 추후 개선 필요)
+        top_actors_with_id = []
+        for name in top_actors_names:
+            person_id = search_person_by_name(name)
+            if person_id:
+                top_actors_with_id.append(Person(id=person_id, name=name))
 
-        return TasteAnalysisReport(
-            taste_title=taste_title,
+        top_directors_with_id = []
+        for name in top_directors_names:
+            person_id = search_person_by_name(name)
+            if person_id:
+                top_directors_with_id.append(Person(id=person_id, name=name))
+
+        # 6. 취향 타이틀 생성
+        analysis_title = "당신은 진정한 시네필!" # 기본값
+        if top_genres:
+            analysis_title = f"'{top_genres[0]}' 장르를 사랑하는"
+            if top_actors_names:
+                analysis_title += f", '{top_actors_names[0]}'의 팬"
+        
+        return TasteAnalysisResponse(
+            total_ratings=total_ratings,
+            analysis_title=analysis_title,
             top_genres=top_genres,
-            preferred_era=preferred_era
+            rating_distribution=rating_distribution,
+            top_actors=top_actors_with_id,
+            top_directors=top_directors_with_id,
         )
 
     except Exception as e:

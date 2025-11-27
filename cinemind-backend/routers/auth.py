@@ -48,9 +48,15 @@ def signup(user: UserCreate):
             profile_data = {"id": auth_response.user.id, "username": user.username, "email": user.email}
             supabase_admin.table("profiles").insert(profile_data).execute()
             
+            # 온보딩에서 '좋아요'한 영화가 있는 경우, 출처를 'onboarding'으로 명시하고 중립 평점(3점)으로 저장
             if user.liked_movie_ids and auth_response.user:
                 ratings_to_insert = [
-                    {"user_id": auth_response.user.id, "movie_id": str(movie_id), "rating": 5}
+                    {
+                        "user_id": auth_response.user.id, 
+                        "movie_id": str(movie_id), 
+                        "rating": 3, # 중립적인 평점
+                        "source": "onboarding" # 출처 명시
+                    }
                     for movie_id in user.liked_movie_ids
                 ]
                 supabase_admin.table("user_ratings").insert(ratings_to_insert).execute()

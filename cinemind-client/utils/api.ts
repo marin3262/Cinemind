@@ -34,7 +34,7 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
         headers: {
             ...headers,
             ...options.headers,
-        },
+        } as HeadersInit,
     });
     return response;
 };

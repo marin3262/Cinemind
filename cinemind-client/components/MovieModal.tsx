@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
 import { getSimilarMovies } from '../utils/api';
 import MovieCarousel from './MovieCarousel';
+import WatchProviderList from './WatchProviderList';
 
 type MovieDetails = {
   id: string;
@@ -126,6 +127,10 @@ const MovieModal = ({ visible, onClose, movie, isDetailLoading, onSaveRating, on
                   <Text style={styles.synopsisTitle}>줄거리</Text>
                   <Text style={styles.synopsis}>{movie.synopsis || '줄거리 정보가 없습니다.'}</Text>
                   
+                  {movie.watch_providers && movie.watch_providers.length > 0 && (
+                    <WatchProviderList providers={movie.watch_providers} watchLink={movie.watch_link} />
+                  )}
+
                   <Text style={styles.synopsisTitle}>내 평점</Text>
                   <View style={styles.ratingInputContainer}>{renderStars()}</View>
                   

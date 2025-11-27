@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, [authState.authenticated, segments, navigationState?.key, isReady]);
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (username, email, password, likedMovieIds: number[] = []) => {
+  const signup = async (username: string, email: string, password: string, likedMovieIds: number[] = []) => {
     try {
       const response = await fetch(`${API_BASE_URL}/signup`, {
         method: 'POST',
