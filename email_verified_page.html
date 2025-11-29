@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineMind 인증 완료</title>
+    <style>
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid #e0e0e0;
+        }
+        .icon {
+            font-size: 60px;
+            color: #4CAF50; /* Green checkmark */
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        p {
+            font-size: 17px;
+            color: #555;
+            margin-bottom: 25px;
+        }
+        .btn {
+            background-color: #007BFF; /* Blue button */
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            display: inline-block; /* To allow padding and margin */
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .footer-text {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">✔️</div>
+        <h1>이메일 인증이 완료되었습니다!</h1>
+        <p>CineMind 계정이 성공적으로 활성화되었습니다.</p>
+        <p>이제 앱으로 돌아가 로그인해주세요.</p>
+        <a href="#" class="btn" onclick="window.close();">앱으로 돌아가기</a>
+        <p class="footer-text">브라우저 창을 닫아주세요.</p>
+    </div>
+</body>
+</html>
