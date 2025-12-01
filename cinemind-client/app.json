@@ -13,8 +13,10 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
-      }
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.marin3262.cinemindclient"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,6 +50,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "57c7b290-2fae-467b-90a0-7be3f31ade62"
+      }
     }
   }
 }

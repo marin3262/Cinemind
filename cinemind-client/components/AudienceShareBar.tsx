@@ -4,39 +4,39 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/theme';
 
 interface AudienceShareBarProps {
-  koreanAudience: number;
-  foreignAudience: number;
+  championAudience: number;
+  challengerAudience: number;
 }
 
-const AudienceShareBar: React.FC<AudienceShareBarProps> = ({ koreanAudience, foreignAudience }) => {
-  const totalAudience = koreanAudience + foreignAudience;
+const AudienceShareBar: React.FC<AudienceShareBarProps> = ({ championAudience, challengerAudience }) => {
+  const totalAudience = championAudience + challengerAudience;
 
   if (totalAudience === 0) {
     return null; // Don't render if there's no audience data
   }
 
-  const koreanPercentage = (koreanAudience / totalAudience) * 100;
-  const foreignPercentage = 100 - koreanPercentage;
+  const championPercentage = (championAudience / totalAudience) * 100;
+  const challengerPercentage = 100 - championPercentage;
 
   return (
     <View style={styles.container}>
         <Text style={styles.title}>일일 관객 점유율</Text>
         <View style={styles.barContainer}>
-            <View style={[styles.koreanBar, { width: `${koreanPercentage}%` }]}>
-                <Text style={styles.barText}>{`${Math.round(koreanPercentage)}%`}</Text>
+            <View style={[styles.koreanBar, { width: `${championPercentage}%` }]}>
+                <Text style={styles.barText}>{`${Math.round(championPercentage)}%`}</Text>
             </View>
-            <View style={[styles.foreignBar, { width: `${foreignPercentage}%` }]}>
-                <Text style={styles.barText}>{`${Math.round(foreignPercentage)}%`}</Text>
+            <View style={[styles.foreignBar, { width: `${challengerPercentage}%` }]}>
+                <Text style={styles.barText}>{`${Math.round(challengerPercentage)}%`}</Text>
             </View>
         </View>
         <View style={styles.legendContainer}>
             <View style={styles.legendItem}>
                 <View style={[styles.legendColor, { backgroundColor: Colors.light.primary }]} />
-                <Text style={styles.legendText}>국내 영화</Text>
+                <Text style={styles.legendText}>1위</Text>
             </View>
             <View style={styles.legendItem}>
                 <View style={[styles.legendColor, { backgroundColor: Colors.light.secondary }]} />
-                <Text style={styles.legendText}>해외 영화</Text>
+                <Text style={styles.legendText}>2위</Text>
             </View>
         </View>
     </View>

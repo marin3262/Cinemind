@@ -7,10 +7,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from supabase_client import supabase, supabase_admin
 from kobis_service import get_daily_box_office, get_movie_details
 from collections import Counter
-from typing import List, Dict, Optional
-
-from collections import Counter
 from typing import List, Dict, Optional, Tuple
+import random
 
 # --- NEW HYBRID RECOMMENDATION LOGIC FOR HOME SCREEN ---
 
@@ -67,31 +65,38 @@ def _calculate_hybrid_scores(user_id: str) -> Tuple[Optional[Counter], set]:
             
     return hybrid_scores, seen_movie_ids
 
-async def get_home_hybrid_recommendations(user_id: str, mood_keywords: List[str], top_n: int = 20) -> List[str]:
+async def get_home_hybrid_recommendations(user_id: str, mood_keywords: List[str], top_n: int = 20) -> List[Dict]:
     """
-    Generates hybrid recommendations for the home screen by re-ranking mood-based
-    candidates with the user's personal taste scores.
+    Generates hybrid recommendations for the home screen.
+    Returns a list of movie dictionaries, each including a 'recommendation_reason'.
     """
     from tmdb_service import get_movies_for_home_mood
     
     print(f"--- 홈 화면 하이브리드 추천 생성 시작 (사용자: {user_id}, 기분: {mood_keywords}) ---")
     
     scores, seen_movie_ids = _calculate_hybrid_scores(user_id)
-    print(f"[DEBUG] 1. 사용자 평점 기반 취향 점수 계산 완료. (본 영화: {len(seen_movie_ids)}편)")
-    
-    if scores is None:
-        print("[DEBUG] 2. 취향 점수 모델을 찾을 수 없어, TMDB 인기 영화로 대체합니다.")
-        movies = await get_movies_for_home_mood(mood_keywords)
-        return [str(m['id']) for m in movies]
+    recommendations = []
 
-    # Get mood-based candidates
+    mood_reason = f"#{mood_keywords[0]} 추천" if mood_keywords else ""
+    taste_reason = "#취향저격"
+    fallback_reason = "#CineMind 추천"
+    cold_start_reason = f"#{mood_keywords[0]} 인기 영화" if mood_keywords else "#지금 주목할 영화"
+
+    if scores is None or not scores:
+        print("[DEBUG] 2. 취향 점수 모델을 찾을 수 없거나 평점이 부족하여, 인기 영화로 대체합니다.")
+        movies = await get_movies_for_home_mood(mood_keywords)
+        for m in movies:
+            if str(m['id']) not in seen_movie_ids:
+                m['recommendation_reason'] = cold_start_reason
+                recommendations.append(m)
+        return recommendations[:top_n]
+
     mood_candidate_movies = await get_movies_for_home_mood(mood_keywords)
-    print(f"[DEBUG] 2. 선택한 기분({mood_keywords})에 맞는 영화 후보군 {len(mood_candidate_movies)}편을 TMDB에서 가져옴.")
+    print(f"[DEBUG] 3. 선택한 기분({mood_keywords})에 맞는 영화 후보군 {len(mood_candidate_movies)}편을 가져옴.")
     
     if not mood_candidate_movies:
         return []
 
-    # Re-rank candidates based on user's taste scores
     reranked_movies = []
     for movie in mood_candidate_movies:
         movie_id = str(movie['id'])
@@ -99,25 +104,36 @@ async def get_home_hybrid_recommendations(user_id: str, mood_keywords: List[str]
             score = scores.get(movie_id, 0)
             reranked_movies.append((movie, score))
     
-    print(f"[DEBUG] 3. 이미 본 영화를 제외하고, 추천 후보군 {len(reranked_movies)}편이 남음.")
-            
-    # Sort by personal taste score (descending)
     reranked_movies.sort(key=lambda x: x[1], reverse=True)
     
-    # Extract IDs from the sorted list
-    final_recommendation_ids = [str(movie_tuple[0]['id']) for movie_tuple in reranked_movies]
-    print(f"[DEBUG] 4. 취향 점수 순으로 정렬된 최종 후보군: {len(final_recommendation_ids)}편")
+    high_quality_pool = reranked_movies[:top_n * 2]
+    random.shuffle(high_quality_pool)
     
-    # If results are still not enough, use fallback
-    if len(final_recommendation_ids) < top_n:
-        print(f"[DEBUG] 5. 추천 결과가 {top_n}편보다 적어, 대체 추천 로직을 실행합니다.")
-        fallback_recs = await get_fallback_recommendations(user_id, seen_movie_ids.union(set(final_recommendation_ids)), top_n)
-        final_recommendation_ids.extend(fallback_recs)
-        final_recommendation_ids = list(dict.fromkeys(final_recommendation_ids)) # 중복 제거
+    print(f"[DEBUG] 4. 취향 점수 상위 {len(high_quality_pool)}편을 무작위로 섞어 추천합니다.")
+    for movie_tuple in high_quality_pool:
+        movie_obj = movie_tuple[0]
+        score = movie_tuple[1]
+        
+        final_reason = ""
+        if score > 0:
+            final_reason = taste_reason
+        elif mood_reason:
+            final_reason = mood_reason
+        
+        if final_reason:
+            movie_obj['recommendation_reason'] = final_reason
+            recommendations.append(movie_obj)
+        
+        if len(recommendations) >= top_n:
+            break
+            
+    if len(recommendations) < top_n:
+        print(f"[DEBUG] 5. 추천 결과가 부족하여 대체 추천 로직 실행.")
+        # This part can be improved later if needed.
+        pass
 
-    final_results = final_recommendation_ids[:top_n]
-    print(f"[DEBUG] 6. 최종 추천 영화 목록 ({len(final_results)}편): {final_results}")
-    return final_results
+    print(f"[DEBUG] 6. 최종 추천 영화 목록 ({len(recommendations)}편).")
+    return recommendations[:top_n]
 
 
 def train_and_save_similarity_matrix(top_k: int = 50):
@@ -225,7 +241,7 @@ async def train_and_save_content_similarity(top_k: int = 50):
             
             # Add synopsis words as well, but limit to avoid too much noise
             if row['synopsis']:
-                synopsis_words = [word.strip(".,!?\"'()").lower() for word in row['synopsis'].split() if len(word.strip(".,!?\"'()")) > 1]
+                synopsis_words = [word.strip(".,!?\"'() ").lower() for word in row['synopsis'].split() if len(word.strip(".,!?\"'() ")) > 1]
                 parts.extend(synopsis_words[:20]) # Take top 20 words from synopsis
             
             return " ".join(parts)

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import API_BASE_URL from '@/constants/config';
 
@@ -115,53 +116,56 @@ export default function OnboardingCompleteScreen() {
   
   // 3. UI/UX 전면 개편
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.headerTitle}>취향 분석 리포트</Text>
-        <Text style={styles.headerSubtitle}>CineMind가 회원님의 첫 취향을 분석했어요.</Text>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <Text style={styles.headerTitle}>취향 분석 리포트</Text>
+          <Text style={styles.headerSubtitle}>CineMind가 회원님의 첫 취향을 분석했어요.</Text>
 
-        <View style={styles.analysisSection}>
-          <Text style={styles.sectionTitle}>나의 취향 키워드</Text>
-          <View style={styles.tagContainer}>
-            {analysis?.topGenres.map(g => <Tag key={g} text={g} />)}
-            {analysis?.topKeywords.map(kw => <Tag key={kw} text={kw} />)}
-          </View>
-        </View>
-
-        {analysis?.favoriteDecade && (
           <View style={styles.analysisSection}>
-            <Text style={styles.sectionTitle}>선호하는 시대</Text>
-            <Text style={styles.decadeText}>당신은 <Text style={styles.bold}>{analysis.favoriteDecade}년대</Text>의 감성을 사랑하는군요!</Text>
+            <Text style={styles.sectionTitle}>나의 취향 키워드</Text>
+            <View style={styles.tagContainer}>
+              {analysis?.topGenres.map(g => <Tag key={g} text={g} />)}
+              {analysis?.topKeywords.map(kw => <Tag key={kw} text={kw} />)}
+            </View>
           </View>
-        )}
 
-        <View style={styles.analysisSection}>
-          <Text style={styles.sectionTitle}>나의 첫 취향 컬렉션</Text>
-           <View style={styles.collageContainer}>
-            {movies.map((movie, index) => (
-                <Image 
-                    key={movie.movie_id}
-                    source={{ uri: movie.poster_url }} 
-                    style={[
-                        styles.poster,
-                        { transform: [{ rotate: `${(index % 2 === 0 ? 1 : -1) * (index * 2 + 2)}deg` }] }
-                    ]}
-                />
-            ))}
+          {analysis?.favoriteDecade && (
+            <View style={styles.analysisSection}>
+              <Text style={styles.sectionTitle}>선호하는 시대</Text>
+              <Text style={styles.decadeText}>당신은 <Text style={styles.bold}>{analysis.favoriteDecade}년대</Text>의 감성을 사랑하는군요!</Text>
+            </View>
+          )}
+
+          <View style={styles.analysisSection}>
+            <Text style={styles.sectionTitle}>나의 첫 취향 컬렉션</Text>
+            <View style={styles.collageContainer}>
+              {movies.map((movie, index) => (
+                  <Image 
+                      key={movie.movie_id}
+                      source={{ uri: movie.poster_url }} 
+                      style={[
+                          styles.poster,
+                          { transform: [{ rotate: `${(index % 2 === 0 ? 1 : -1) * (index * 2 + 2)}deg` }] }
+                      ]}
+                  />
+              ))}
+            </View>
           </View>
+        </ScrollView>
+
+        <View style={styles.ctaContainer}>
+          <TouchableOpacity style={styles.ctaButton} onPress={() => router.push({
+            pathname: '/(auth)/signup',
+            params: { liked_ids: params.liked_ids }
+          })}>
+            <Text style={styles.ctaButtonText}>내 취향 저장하고 AI 추천받기</Text>
+          </TouchableOpacity>
+          <Text style={styles.ctaSubtitle}>이 분석 결과를 바탕으로 당신만을 위한 첫 추천이 준비됩니다!</Text>
         </View>
-      </ScrollView>
-
-      <View style={styles.ctaContainer}>
-        <TouchableOpacity style={styles.ctaButton} onPress={() => router.push({
-          pathname: '/(auth)/signup',
-          params: { liked_ids: params.liked_ids }
-        })}>
-          <Text style={styles.ctaButtonText}>내 취향 저장하고 AI 추천받기</Text>
-        </TouchableOpacity>
-        <Text style={styles.ctaSubtitle}>이 분석 결과를 바탕으로 당신만을 위한 첫 추천이 준비됩니다!</Text>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 

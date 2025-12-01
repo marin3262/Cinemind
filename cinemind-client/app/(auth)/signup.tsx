@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/theme';
@@ -120,27 +121,47 @@ export default function SignUpScreen() {
             return;
         }
         const result = await onSignup(username, email, password, likedMovieIds);
-        if (result && !result.success) {
-              Alert.alert("회원가입 실패", String(result.error));
-            }    };
+        
+        if (result?.success) {
+            Alert.alert(
+                "인증 메일 발송 완료",
+                "회원가입 신청이 완료되었습니다. 입력하신 이메일 주소에서 인증 링크를 클릭하여 가입을 완료해주세요.",
+                [
+                    {
+                        text: "확인",
+                        onPress: () => router.replace('/(auth)/login'),
+                    },
+                ],
+                { cancelable: false }
+            );
+        } else if (result?.error) {
+            Alert.alert("회원가입 실패", String(result.error));
+        }
+    };
 
     const innerContentProps = { username, email, password, passwordConfirm, setUsername, setEmail, setPassword, setPasswordConfirm, handleSignUp, handleCheckUsername: () => handleCheck('username', username), handleCheckEmail: () => handleCheck('email', email), usernameChecked, emailChecked, router };
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {Platform.OS === 'web' ? (<InnerContent {...innerContentProps} />) : (
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoiding}>
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}><InnerContent {...innerContentProps} /></TouchableWithoutFeedback>
-                </KeyboardAvoidingView>
-            )}
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoiding}>
+                <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                        <InnerContent {...innerContentProps} />
+                    </TouchableWithoutFeedback>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: Colors.light.background },
+    safeArea: { flex: 1, backgroundColor: '#F3F4F6' },
     keyboardAvoiding: { flex: 1 },
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16, backgroundColor: '#F3F4F6' },
+    scrollContainer: {
+        flexGrow: 1,
+        justifyContent: 'center',
+    },
+    container: { justifyContent: 'center', alignItems: 'center', padding: 16, backgroundColor: '#F3F4F6' },
     header: { alignItems: 'center', marginBottom: 32 },
     title: { fontSize: 40, fontWeight: 'bold', color: Colors.light.primary, flexDirection: 'row', alignItems: 'center' },
     subtitle: { fontSize: 16, color: Colors.light.textSecondary, marginTop: 8 },

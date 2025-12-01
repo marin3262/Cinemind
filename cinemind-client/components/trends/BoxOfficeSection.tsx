@@ -50,7 +50,7 @@ const BoxOfficeSection = ({
                               key={movie.id} 
                               movie={movie} 
                               onPress={() => handleMoviePress(movie, 'kobis')}
-                              displayRank={sortBy === 'rank' ? movie.rank : index + 1}
+                              displayRank={movie.rank}
                               displayAudience={sortBy === 'rank' ? movie.daily_audience : movie.audience}
                               audienceLabel={sortBy === 'rank' ? '일일' : '누적'}
                             />

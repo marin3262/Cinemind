@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
+import { FontAwesome } from '@expo/vector-icons';
 
 type MovieCardProps = {
   movie: {
@@ -13,6 +14,7 @@ type MovieCardProps = {
     release_date?: string;
     audience?: number;
     daily_audience?: number;
+    recommendation_reason?: string | null;
   };
   onPress: () => void;
   displayRank?: number;
@@ -42,6 +44,12 @@ const MovieCard = ({ movie, onPress, displayRank, displayAudience, audienceLabel
         )}
       </View>
       <View style={styles.contentContainer}>
+        {movie.recommendation_reason && (
+            <View style={styles.reasonContainer}>
+                <FontAwesome name="magic" size={12} color={Colors.light.tint} />
+                <Text style={styles.reasonText}>{movie.recommendation_reason}</Text>
+            </View>
+        )}
         {hasBoxOfficeInfo ? (
           <Text style={styles.rank}>RANK {displayRank ?? movie.rank}</Text>
         ) : null}
@@ -98,6 +106,17 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     justifyContent: 'center',
+  },
+  reasonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  reasonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: Colors.light.tint,
+    marginLeft: 6,
   },
   rank: {
     fontSize: 12,

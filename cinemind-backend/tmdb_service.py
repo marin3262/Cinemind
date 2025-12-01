@@ -4,7 +4,7 @@ import requests
 import httpx
 import asyncio
 import random
-from typing import List
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
 TMDB_API_KEY = os.getenv('TMDB_API_KEY')
@@ -18,19 +18,11 @@ GENRE_IDS = {
     "SF": 878, "스릴러": 53, "다큐멘터리": 99
 }
 
-# 기분과 장르 ID 목록 매핑
-MOOD_GENRE_MAP = {
-    "신나는": [GENRE_IDS["액션"], GENRE_IDS["모험"], GENRE_IDS["코미디"]],
-    "행복한": [GENRE_IDS["코미디"], GENRE_IDS["로맨스"], GENRE_IDS["음악"], GENRE_IDS["가족"]],
-    "위로가 필요한": [GENRE_IDS["드라마"], GENRE_IDS["로맨스"], GENRE_IDS["애니메이션"]],
-    "생각이 많은": [GENRE_IDS["SF"], GENRE_IDS["미스터리"], GENRE_IDS["드라마"], GENRE_IDS["다큐멘터리"]]
-}
-
-# 기본값 (mood가 지정되지 않았을 경우)
-DEFAULT_ONBOARDING_GENRES = [
-    GENRE_IDS["액션"], GENRE_IDS["로맨스"], GENRE_IDS["코미디"],
-    GENRE_IDS["SF"], GENRE_IDS["애니메이션"], GENRE_IDS["스릴러"]
+# 기본값 (기분 키워드가 지정되지 않았을 경우)
+DEFAULT_ONBOARDING_GENRE_NAMES = [
+    "액션", "로맨스", "코미디", "SF", "애니메이션", "스릴러"
 ]
+MIN_ONBOARDING_MOVIES = 10
 
 def get_full_poster_url(poster_path: str, size: str = 'w500'):
     """
@@ -88,6 +80,159 @@ def get_movie_poster_path(tmdb_id: int):
     except requests.exceptions.RequestException as e:
         print(f"TMDB API 영화 상세 정보 조회 중 오류 발생: {e}")
         return None
+
+async def get_movies_for_onboarding(mood_keywords: List[str]) -> List[dict]:
+    """
+    온보딩 스와이프 화면을 위한 영화 목록을 가져오고, 각 영화의 주요 배우 정보를 포함합니다.
+    결과가 부족할 경우 다른 인기 장르에서 영화를 보충합니다.
+    """
+    target_genre_names = mood_keywords if mood_keywords else DEFAULT_ONBOARDING_GENRE_NAMES
+    target_genre_ids = [GENRE_IDS[name] for name in target_genre_names if name in GENRE_IDS]
+    
+    if not target_genre_ids:
+        target_genre_ids = [GENRE_IDS[name] for name in DEFAULT_ONBOARDING_GENRE_NAMES]
+
+    id_to_genre_name_map = {v: k for k, v in GENRE_IDS.items()}
+    
+    movie_candidates = []
+    seen_movie_ids = set()
+
+    async with httpx.AsyncClient() as client:
+        # 1. 사용자가 선택한 장르에서 영화 후보군 수집
+        tasks = []
+        for genre_id in target_genre_ids:
+            random_page = random.randint(1, 5)
+            url = f"{TMDB_API_BASE_URL}/discover/movie"
+            params = {
+                "api_key": TMDB_API_KEY, "with_genres": str(genre_id), "sort_by": "popularity.desc",
+                "language": "ko-KR", "page": random_page, "region": "KR", "vote_count.gte": 100
+            }
+            tasks.append(client.get(url, params=params))
+
+        discover_responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for i, response in enumerate(discover_responses):
+            if isinstance(response, httpx.Response) and response.status_code == 200:
+                data = response.json()
+                current_genre_id = target_genre_ids[i % len(target_genre_ids)]
+                genre_name = id_to_genre_name_map.get(current_genre_id, "기타")
+                
+                for movie in data.get("results", [])[:7]: # 장르당 7개씩 우선 수집
+                    if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
+                        movie_candidates.append({
+                            "movie_id": movie["id"], "title": movie["title"],
+                            "poster_url": get_full_poster_url(movie['poster_path']),
+                            "genre_name": genre_name
+                        })
+                        seen_movie_ids.add(movie["id"])
+        
+        # 2. 영화가 부족할 경우, 기본 인기 장르에서 보충 (Fallback)
+        if len(seen_movie_ids) < MIN_ONBOARDING_MOVIES:
+            print(f"온보딩 영화 부족: {len(seen_movie_ids)}편. 기본 장르에서 보충합니다.")
+            
+            fallback_tasks = []
+            # 선택된 장르를 제외한 기본 장르 목록
+            fallback_genre_names = [name for name in DEFAULT_ONBOARDING_GENRE_NAMES if name not in target_genre_names]
+            
+            for genre_name in fallback_genre_names:
+                genre_id = GENRE_IDS[genre_name]
+                random_page = random.randint(1, 5)
+                url = f"{TMDB_API_BASE_URL}/discover/movie"
+                params = {
+                    "api_key": TMDB_API_KEY, "with_genres": str(genre_id), "sort_by": "popularity.desc",
+                    "language": "ko-KR", "page": random_page, "region": "KR", "vote_count.gte": 100
+                }
+                fallback_tasks.append(client.get(url, params=params))
+
+            fallback_responses = await asyncio.gather(*fallback_tasks, return_exceptions=True)
+
+            for i, response in enumerate(fallback_responses):
+                if len(seen_movie_ids) >= MIN_ONBOARDING_MOVIES:
+                    break # 목표 개수를 채우면 중단
+                
+                if isinstance(response, httpx.Response) and response.status_code == 200:
+                    data = response.json()
+                    genre_name = fallback_genre_names[i % len(fallback_genre_names)]
+                    
+                    for movie in data.get("results", []):
+                        if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
+                            movie_candidates.append({
+                                "movie_id": movie["id"], "title": movie["title"],
+                                "poster_url": get_full_poster_url(movie['poster_path']),
+                                "genre_name": genre_name
+                            })
+                            seen_movie_ids.add(movie["id"])
+                            if len(seen_movie_ids) >= MIN_ONBOARDING_MOVIES:
+                                break
+    
+    # 3. 수집된 영화들의 출연진 정보 병렬로 가져오기
+    actor_map = {}
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        for movie in movie_candidates:
+            movie_id = movie["movie_id"]
+            credits_url = f"{TMDB_API_BASE_URL}/movie/{movie_id}/credits"
+            params = {"api_key": TMDB_API_KEY, "language": "ko-KR"}
+            tasks.append(client.get(credits_url, params=params))
+
+        credits_responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for i, response in enumerate(credits_responses):
+            movie_id = movie_candidates[i]["movie_id"]
+            if isinstance(response, httpx.Response) and response.status_code == 200:
+                credits_data = response.json()
+                top_actors = [actor['name'] for actor in credits_data.get('cast', [])[:2]]
+                actor_map[movie_id] = top_actors
+            else:
+                actor_map[movie_id] = []
+
+    # 4. 최종 영화 목록에 배우 정보 결합
+    onboarding_movies = []
+    for movie in movie_candidates:
+        movie['actors'] = actor_map.get(movie['movie_id'], [])
+        onboarding_movies.append(movie)
+
+    random.shuffle(onboarding_movies)
+    return onboarding_movies
+
+# This function was accidentally deleted in a previous step. Restoring it now.
+async def get_details_for_movies(ids: List[int]) -> List[dict]:
+    """
+    주어진 영화 ID 목록에 대한 상세 정보(키워드, 개봉일 포함)를 TMDB에서 가져옵니다.
+    """
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        for movie_id in ids:
+            details_url = f"{TMDB_API_BASE_URL}/movie/{movie_id}"
+            keywords_url = f"{TMDB_API_BASE_URL}/movie/{movie_id}/keywords"
+            params = {"api_key": TMDB_API_KEY, "language": "ko-KR"}
+            
+            tasks.append(client.get(details_url, params=params))
+            tasks.append(client.get(keywords_url, params={"api_key": TMDB_API_KEY}))
+        
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    detailed_movies = []
+    for i in range(0, len(responses), 2):
+        details_res = responses[i]
+        keywords_res = responses[i+1]
+
+        if isinstance(details_res, httpx.Response) and details_res.status_code == 200:
+            movie = details_res.json()
+            keywords = []
+            if isinstance(keywords_res, httpx.Response) and keywords_res.status_code == 200:
+                keywords = [kw['name'] for kw in keywords_res.json().get('keywords', [])]
+
+            if movie.get('poster_path'):
+                detailed_movies.append({
+                    "movie_id": movie["id"],
+                    "title": movie["title"],
+                    "poster_url": get_full_poster_url(movie.get('poster_path')),
+                    "genre_name": movie["genres"][0]["name"] if movie.get("genres") else "기타",
+                    "release_date": movie.get("release_date"),
+                    "keywords": keywords
+                })
+    return detailed_movies
 
 def search_person_on_tmdb(name: str) -> dict | None:
     """
@@ -151,90 +296,6 @@ async def search_movies_by_query(query: str) -> List[dict]:
             print(f"TMDB 영화 검색 중 예외 발생: {e}")
             return []
 
-
-async def get_movies_for_onboarding(mood: str | None) -> List[dict]:
-    """
-    온보딩 스와이프 화면을 위한 다양하고 무작위적인 영화 목록을 가져옵니다.
-    """
-    target_genre_ids = MOOD_GENRE_MAP.get(mood, DEFAULT_ONBOARDING_GENRES)
-    id_to_genre_name_map = {v: k for k, v in GENRE_IDS.items()}
-    onboarding_movies = []
-    seen_movie_ids = set()
-    async with httpx.AsyncClient() as client:
-        tasks = []
-        for genre_id in target_genre_ids:
-            random_page = random.randint(1, 5)
-            url = f"{TMDB_API_BASE_URL}/discover/movie"
-            params = {
-                "api_key": TMDB_API_KEY,
-                "with_genres": genre_id,
-                "sort_by": "popularity.desc",
-                "language": "ko-KR",
-                "page": random_page,
-                "region": "KR",
-                "vote_count.gte": 100
-            }
-            tasks.append(client.get(url, params=params))
-
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for i, response in enumerate(responses):
-            if isinstance(response, httpx.Response) and response.status_code == 200:
-                data = response.json()
-                current_genre_id = target_genre_ids[i]
-                genre_name = id_to_genre_name_map.get(current_genre_id, "기타")
-                
-                for movie in data.get("results", [])[:5]:
-                    if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
-                        onboarding_movies.append({
-                            "movie_id": movie["id"],
-                            "title": movie["title"],
-                            "poster_url": get_full_poster_url(movie['poster_path']),
-                            "genre_name": genre_name
-                        })
-                        seen_movie_ids.add(movie["id"])
-    
-    random.shuffle(onboarding_movies)
-    return onboarding_movies
-
-async def get_details_for_movies(ids: List[int]) -> List[dict]:
-    """
-    주어진 영화 ID 목록에 대한 상세 정보(키워드, 개봉일 포함)를 TMDB에서 가져옵니다.
-    """
-    async with httpx.AsyncClient() as client:
-        tasks = []
-        for movie_id in ids:
-            details_url = f"{TMDB_API_BASE_URL}/movie/{movie_id}"
-            keywords_url = f"{TMDB_API_BASE_URL}/movie/{movie_id}/keywords"
-            params = {"api_key": TMDB_API_KEY, "language": "ko-KR"}
-            
-            tasks.append(client.get(details_url, params=params))
-            tasks.append(client.get(keywords_url, params={"api_key": TMDB_API_KEY}))
-        
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    detailed_movies = []
-    for i in range(0, len(responses), 2):
-        details_res = responses[i]
-        keywords_res = responses[i+1]
-
-        if isinstance(details_res, httpx.Response) and details_res.status_code == 200:
-            movie = details_res.json()
-            keywords = []
-            if isinstance(keywords_res, httpx.Response) and keywords_res.status_code == 200:
-                keywords = [kw['name'] for kw in keywords_res.json().get('keywords', [])]
-
-            if movie.get('poster_path'):
-                detailed_movies.append({
-                    "movie_id": movie["id"],
-                    "title": movie["title"],
-                    "poster_url": get_full_poster_url(movie.get('poster_path')),
-                    "genre_name": movie["genres"][0]["name"] if movie.get("genres") else "기타",
-                    "release_date": movie.get("release_date"),
-                    "keywords": keywords
-                })
-    return detailed_movies
-
 async def get_trending_movies(time_window: str = 'week', page: int = 1) -> List[dict]:
     """
     TMDB에서 트렌딩 영화 목록을 가져옵니다. (주간/일간)
@@ -256,7 +317,7 @@ async def get_trending_movies(time_window: str = 'week', page: int = 1) -> List[
             print(f"TMDB 트렌딩 API 오류: {e.response.status_code}")
             return []
         except Exception as e:
-            print(f"TMDB 트렌딩 영화 조회 중 예외: {e}")
+            print(f"TMDB 트렌딩 영화 조회 중 예외 발생: {e}")
             return []
 
 async def get_now_playing_movies(page: int = 1) -> List[dict]:
@@ -488,7 +549,9 @@ async def get_movies_for_home_mood(keywords: List[str]) -> List[dict]:
     """
     genre_ids = [str(GENRE_IDS[keyword]) for keyword in keywords if keyword in GENRE_IDS]
     if not genre_ids:
-        return []
+        # 키워드가 없을 경우, 인기 영화를 반환하는 로직 (예시)
+        print("[DEBUG-TMDB] No keywords provided, fetching general popular movies.")
+        return await get_trending_movies()
 
     genre_id_string = ",".join(genre_ids)
     
@@ -533,4 +596,3 @@ async def get_movies_for_home_mood(keywords: List[str]) -> List[dict]:
     print(f"[DEBUG-TMDB] Mood search for {keywords} from pages {pages_to_fetch} returned {len(combined_results)} unique movies.")
     
     return combined_results
-

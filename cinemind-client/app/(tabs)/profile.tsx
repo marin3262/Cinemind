@@ -1,12 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Image, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { authenticatedFetch } from '@/utils/api';
 import API_BASE_URL from '@/constants/config';
 import TasteAnalysisCard from '@/components/TasteAnalysisCard';
+import { Collapsible } from '@/components/ui/collapsible';
 
 type MovieListItem = {
     movie_id: string;
@@ -75,126 +77,163 @@ export default function ProfileScreen() {
         }, [fetchProfileData])
     );
 
+    const handleDeleteAccount = () => {
+        Alert.alert(
+          "회원 탈퇴",
+          "정말로 탈퇴하시겠습니까? 모든 활동 기록(평점, 좋아요 등)이 영구적으로 삭제되며 복구할 수 없습니다.",
+          [
+            {
+              text: "취소",
+              style: "cancel",
+            },
+            {
+              text: "탈퇴",
+              onPress: async () => {
+                try {
+                  const response = await authenticatedFetch(`${API_BASE_URL}/users/me`, {
+                    method: 'DELETE',
+                  });
+                  if (response.ok) {
+                    Alert.alert("탈퇴 완료", "회원 탈퇴가 성공적으로 처리되었습니다.");
+                    onLogout(); // Log out and redirect
+                  } else {
+                    const data = await response.json();
+                    throw new Error(data.detail || "계정 삭제에 실패했습니다.");
+                  }
+                } catch (e: any) {
+                  Alert.alert("오류", e.message || "계정 삭제 중 오류가 발생했습니다.");
+                }
+              },
+              style: "destructive", // This makes the button red on iOS
+            },
+          ]
+        );
+      };
+
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView style={styles.container}>
-                <Text style={styles.title}>내 정보</Text>
-                
-                {user && (
-                    <View style={styles.profileInfo}>
-                        <Text style={styles.label}>아이디</Text>
-                        <Text style={styles.value}>{user.username}</Text>
-                        <Text style={styles.label}>이메일</Text>
-                        <Text style={styles.value}>{user.email}</Text>
-                    </View>
-                )}
-
-                {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
-                ) : error ? (
-                    <Text style={styles.infoText}>{error}</Text>
-                ) : (
-                    <>
-                        <TasteAnalysisCard analysis={analysis} />
-
+        <>
+            <Stack.Screen options={{ title: '프로필' }} />
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                    
+                    {user && (
                         <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>내가 평가한 영화</Text>
-                                <TouchableOpacity onPress={() => router.push('/my-ratings')}>
-                                    <Text style={styles.viewMoreButton}>더보기</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {ratedMovies.length > 0 ? (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                                    {ratedMovies.map((movie) => (
-                                        <View key={`rated-${movie.movie_id}`} style={styles.movieCard}>
-                                            <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                                            <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
-                                            <View style={styles.ratingContainer}>
-                                                <FontAwesome name="star" size={16} color="#FFD700" />
-                                                <Text style={styles.ratingText}>{movie.rating}점</Text>
-                                            </View>
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            ) : (
-                                <Text style={styles.infoText}>아직 평가한 영화가 없어요.</Text>
-                            )}
+                            <Collapsible title="계정 정보">
+                                <View style={styles.collapsibleContent}>
+                                    <Text style={styles.label}>아이디</Text>
+                                    <Text style={styles.value}>{user.username}</Text>
+                                    <Text style={styles.label}>이메일</Text>
+                                    <Text style={styles.value}>{user.email}</Text>
+                                </View>
+                            </Collapsible>
                         </View>
+                    )}
 
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>찜한 영화</Text>
-                                <TouchableOpacity onPress={() => router.push('/my-likes')}>
-                                    <Text style={styles.viewMoreButton}>더보기</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {likedMovies.length > 0 ? (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                                    {likedMovies.map((movie) => (
-                                        <View key={`liked-${movie.movie_id}`} style={styles.movieCard}>
-                                            <View style={styles.posterImageContainer}>
+                    {isLoading ? (
+                        <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
+                    ) : error ? (
+                        <Text style={styles.infoText}>{error}</Text>
+                    ) : (
+                        <>
+                            <TasteAnalysisCard analysis={analysis} />
+
+                            <View style={styles.section}>
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>내가 평가한 영화</Text>
+                                    <TouchableOpacity onPress={() => router.push('/my-ratings')}>
+                                        <Text style={styles.viewMoreButton}>더보기</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                {ratedMovies.length > 0 ? (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                                        {ratedMovies.map((movie) => (
+                                            <View key={`rated-${movie.movie_id}`} style={styles.movieCard}>
                                                 <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                                                <View style={styles.bookmarkIconContainer}>
-                                                    <FontAwesome name="bookmark" size={24} color={Colors.light.primary} />
+                                                <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
+                                                <View style={styles.ratingContainer}>
+                                                    <FontAwesome name="star" size={16} color="#FFD700" />
+                                                    <Text style={styles.ratingText}>{movie.rating}점</Text>
                                                 </View>
                                             </View>
-                                            <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            ) : (
-                                <Text style={styles.infoText}>아직 찜한 영화가 없어요.</Text>
-                            )}
-                        </View>
-                    </>
-                )}
+                                        ))}
+                                    </ScrollView>
+                                ) : (
+                                    <Text style={styles.infoText}>아직 평가한 영화가 없어요.</Text>
+                                )}
+                            </View>
 
-                <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-                        <FontAwesome name="sign-out" size={20} color="white" />
-                        <Text style={styles.buttonText}>로그아웃</Text>
-                    </TouchableOpacity>
+                            <View style={styles.section}>
+                                <View style={styles.sectionHeader}>
+                                    <Text style={styles.sectionTitle}>찜한 영화</Text>
+                                    <TouchableOpacity onPress={() => router.push('/my-likes')}>
+                                        <Text style={styles.viewMoreButton}>더보기</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                {likedMovies.length > 0 ? (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                                        {likedMovies.map((movie) => (
+                                            <View key={`liked-${movie.movie_id}`} style={styles.movieCard}>
+                                                <View style={styles.posterImageContainer}>
+                                                    <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
+                                                    <View style={styles.bookmarkIconContainer}>
+                                                        <FontAwesome name="bookmark" size={24} color={Colors.light.primary} />
+                                                    </View>
+                                                </View>
+                                                <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
+                                            </View>
+                                        ))}
+                                    </ScrollView>
+                                ) : (
+                                    <Text style={styles.infoText}>아직 찜한 영화가 없어요.</Text>
+                                )}
+                            </View>
+                        </>
+                    )}
 
-                    <TouchableOpacity 
-                        style={[styles.logoutButton, styles.testButton]} 
-                        onPress={() => router.push('/onboarding')}
-                    >
-                        <FontAwesome name="rocket" size={20} color="white" />
-                        <Text style={styles.buttonText}>온보딩 테스트</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                    <View style={styles.buttonContainer}>
+                        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+                            <FontAwesome name="sign-out" size={20} color="white" />
+                            <Text style={styles.buttonText}>로그아웃</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[styles.logoutButton, styles.testButton]} 
+                            onPress={() => router.push('/onboarding')}
+                        >
+                            <FontAwesome name="rocket" size={20} color="white" />
+                            <Text style={styles.buttonText}>온보딩 테스트</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.logoutButton, styles.deleteButton]}
+                            onPress={handleDeleteAccount}
+                        >
+                            <FontAwesome name="trash" size={20} color="white" />
+                            <Text style={styles.buttonText}>회원 탈퇴</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </SafeAreaView>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: 'white',
     },
     container: {
         flex: 1,
+    },
+    contentContainer: {
         padding: 16,
     },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: Colors.light.text,
-        marginBottom: 24,
-    },
-    profileInfo: {
-        width: '100%',
+    collapsibleContent: {
         backgroundColor: 'white',
         padding: 24,
         borderRadius: 12,
-        marginBottom: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        marginTop: 8,
     },
     label: {
         fontSize: 16,
@@ -208,7 +247,16 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     section: {
-        marginBottom: 32,
+        marginBottom: 24,
+        width: '100%',
+        backgroundColor: 'white',
+        padding: 16,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 1,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -227,17 +275,18 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     carouselContainer: {
-        paddingLeft: 4,
+        paddingVertical: 10, // Add vertical padding for shadow
+        paddingLeft: 8,
     },
     movieCard: {
         width: 140,
-        marginRight: 16,
+        margin: 8, // Use margin instead of marginRight for all-around spacing
         backgroundColor: 'white',
         borderRadius: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
         elevation: 3,
         paddingBottom: 8,
     },
@@ -283,11 +332,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: Colors.light.text,
     },
-    errorText: {
-        color: 'red',
-        textAlign: 'center',
-        marginTop: 20,
-    },
     infoText: {
         color: Colors.light.textSecondary,
         textAlign: 'center',
@@ -322,6 +366,10 @@ const styles = StyleSheet.create({
     },
     testButton: {
         backgroundColor: '#4A90E2',
+        marginTop: 16,
+    },
+    deleteButton: {
+        backgroundColor: '#E53E3E', // A shade of red
         marginTop: 16,
     },
 });

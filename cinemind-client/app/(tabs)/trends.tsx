@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import { Colors } from '@/constants/theme';
 import { authenticatedFetch } from '@/utils/api';
@@ -82,80 +83,77 @@ export default function TrendsScreen() {
       : 0;
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView>
-                <View style={styles.header}>
-                    <Text style={styles.title}>무비 트렌드</Text>
-                </View>
-
-                {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
-                ) : error ? (
-                    <Text style={styles.infoText}>{error}</Text>
-                ) : (
-                    <>
-                        <BoxOfficeSection 
-                            boxOfficeMovies={boxOfficeMovies}
-                            topMovies={topMovies}
-                            maxAudience={maxAudience}
-                            sortBy={sortBy}
-                            setSortBy={setSortBy}
-                            handleMoviePress={handleMoviePress}
-                        />
-                        
-                        <BattleSection 
-                            battleData={battleData}
-                            handleMoviePress={handleMoviePress}
-                        />
-                        
-                        <View style={styles.sectionContainer}>
-                            <Text style={styles.sectionTitle}>이번 주 최고의 인물</Text>
-                             <Text style={styles.sectionSubtitle}>주간 박스오피스에 가장 많이 등장한 영화인</Text>
-                            {popularPerson ? (
-                                <TouchableOpacity style={styles.personCard} onPress={() => router.push({ pathname: `/person/${popularPerson.id}` })}>
-                                    <Image source={{ uri: popularPerson.profile_url }} style={styles.personImage} />
-                                    <View style={styles.personInfo}>
-                                        <Text style={styles.personName}>{popularPerson.name}</Text>
-                                        <Text style={styles.personSubtext} numberOfLines={1}>
-                                            관련 작품: {popularPerson.related_movies?.map(m => m.title).join(', ')}
-                                        </Text>
-                                    </View>
-                                    <FontAwesome name="chevron-right" size={20} color={Colors.light.textSecondary} />
-                                </TouchableOpacity>
-                            ) : (
-                                <EmptyStateCard message="이번 주 최고의 인물 정보를 집계 중입니다." />
-                            )}
-                        </View>
-
-                        <View style={styles.sectionContainer}>
-                            <View style={styles.carouselHeader}>
-                                <Text style={styles.sectionTitle}>따끈따끈 신작</Text>
+        <>
+            <Stack.Screen options={{ title: '트렌드' }} />
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView>
+                    {isLoading ? (
+                        <ActivityIndicator size="large" color={Colors.light.primary} style={{ marginTop: 50 }} />
+                    ) : error ? (
+                        <Text style={styles.infoText}>{error}</Text>
+                    ) : (
+                        <>
+                            <BoxOfficeSection 
+                                boxOfficeMovies={boxOfficeMovies}
+                                topMovies={topMovies}
+                                maxAudience={maxAudience}
+                                sortBy={sortBy}
+                                setSortBy={setSortBy}
+                                handleMoviePress={handleMoviePress}
+                            />
+                            
+                            <BattleSection 
+                                battleData={battleData}
+                                handleMoviePress={handleMoviePress}
+                            />
+                            
+                            <View style={styles.sectionContainer}>
+                                <Text style={styles.sectionTitle}>이번 주 최고의 인물</Text>
+                                <Text style={styles.sectionSubtitle}>주간 박스오피스에 가장 많이 등장한 영화인</Text>
+                                {popularPerson ? (
+                                    <TouchableOpacity style={styles.personCard} onPress={() => router.push({ pathname: `/person/${popularPerson.id}` })}>
+                                        <Image source={{ uri: popularPerson.profile_url }} style={styles.personImage} />
+                                        <View style={styles.personInfo}>
+                                            <Text style={styles.personName}>{popularPerson.name}</Text>
+                                            <Text style={styles.personSubtext} numberOfLines={1}>
+                                                관련 작품: {popularPerson.related_movies?.map(m => m.title).join(', ')}
+                                            </Text>
+                                        </View>
+                                        <FontAwesome name="chevron-right" size={20} color={Colors.light.textSecondary} />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <EmptyStateCard message="이번 주 최고의 인물 정보를 집계 중입니다." />
+                                )}
                             </View>
-                            {newReleases.length > 0 ? (
-                                <MovieCarousel movies={newReleases} onMoviePress={(movie) => handleMoviePress(movie, 'tmdb')} />
-                            ) : (
-                                <EmptyStateCard message="신작 영화 정보를 불러올 수 없습니다." />
-                            )}
-                        </View>
-                    </>
-                )}
-            </ScrollView>
-            <MovieModal
-                visible={modalVisible}
-                onClose={handleCloseModal}
-                movie={selectedMovie}
-                isDetailLoading={isDetailLoading}
-                onSaveRating={handleSaveRating}
-                onToggleLike={handleToggleLike}
-            />
-        </SafeAreaView>
+
+                            <View style={styles.sectionContainer}>
+                                <View style={styles.carouselHeader}>
+                                    <Text style={styles.sectionTitle}>따끈따끈 신작</Text>
+                                </View>
+                                {newReleases.length > 0 ? (
+                                    <MovieCarousel movies={newReleases} onMoviePress={(movie) => handleMoviePress(movie, 'tmdb')} />
+                                ) : (
+                                    <EmptyStateCard message="신작 영화 정보를 불러올 수 없습니다." />
+                                )}
+                            </View>
+                        </>
+                    )}
+                </ScrollView>
+                <MovieModal
+                    visible={modalVisible}
+                    onClose={handleCloseModal}
+                    movie={selectedMovie}
+                    isDetailLoading={isDetailLoading}
+                    onSaveRating={handleSaveRating}
+                    onToggleLike={handleToggleLike}
+                />
+            </SafeAreaView>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: 'white' },
-  header: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', color: Colors.light.text },
   infoText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: Colors.light.textSecondary },
   sectionContainer: { marginBottom: 40 },
   sectionTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.light.text, marginBottom: 4, paddingHorizontal: 16 },

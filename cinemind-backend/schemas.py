@@ -1,7 +1,9 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
+from datetime import datetime
 
 # --- Pydantic Models ---
+
 class User(BaseModel):
     username: str
     email: EmailStr
@@ -25,10 +27,11 @@ class Movie(BaseModel):
     rank: int
     title: str
     release: str
-    audience: int # Cumulative audience
-    daily_audience: int # Daily audience
-    rank_change: Optional[str] = None # 전일 대비 순위 증감
+    audience: int
+    daily_audience: int
+    rank_change: Optional[str] = None
     poster_url: str | None = None
+    recommendation_reason: Optional[str] = None
 
 class WatchProvider(BaseModel):
     provider_name: str
@@ -37,7 +40,7 @@ class WatchProvider(BaseModel):
 class MovieDetails(BaseModel): 
     id: str
     title: str
-    release: str | None = None
+    release_date: str | None = None
     runtime: int | None = None
     genres: List[str]
     directors: List[str]
@@ -56,6 +59,7 @@ class OnboardingMovie(BaseModel):
     title: str
     poster_url: str
     genre_name: str
+    actors: List[str] = []
 
 class MovieIdList(BaseModel):
     ids: List[int]
@@ -63,7 +67,7 @@ class MovieIdList(BaseModel):
 class RatingCreate(BaseModel):
     movie_id: str
     rating: int
-    comment: Optional[str] = None # Add optional comment field
+    comment: Optional[str] = None
     source: str | None = None
 
 class ResponseMessage(BaseModel):
@@ -72,7 +76,7 @@ class ResponseMessage(BaseModel):
 class UserActivityStatus(BaseModel):
     user_rating: int | None = None
     is_liked: bool
-    comment: Optional[str] = None # Add optional comment field
+    comment: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -87,6 +91,7 @@ class TrendingMovie(BaseModel):
     release_date: str | None = None
     overview: str | None = None
     vote_average: float | None = None
+    recommendation_reason: Optional[str] = None
 
 class Genre(BaseModel):
     id: int
@@ -97,12 +102,13 @@ class UserRatingWithMovie(BaseModel):
     title: str
     poster_url: str | None = None
     rating: int
-    comment: Optional[str] = None # Add optional comment field
+    comment: Optional[str] = None
 
 class LikedMovie(BaseModel):
     movie_id: str
     title: str
     poster_url: str | None = None
+    created_at: datetime
 
 class Person(BaseModel):
     id: str
@@ -121,8 +127,8 @@ class TasteAnalysisResponse(BaseModel):
     top_directors: List[Person]
 
 class BoxOfficeBattleResponse(BaseModel):
-    korean: Optional[Movie] = None
-    foreign: Optional[Movie] = None
+    champion: Optional[Movie] = None
+    challenger: Optional[Movie] = None
 
 # --- Person Details ---
 class FilmoItem(BaseModel):
@@ -133,7 +139,7 @@ class FilmoItem(BaseModel):
 class PersonDetails(BaseModel):
     personCd: str
     personNm: str
-    repRoleNm: str # 대표 분야 (배우, 감독 등)
+    repRoleNm: Optional[str]
     filmos: List[FilmoItem]
 
 class RelatedMovie(BaseModel):
@@ -145,4 +151,3 @@ class WeeklyPopularPerson(BaseModel):
     name: str
     profile_url: Optional[str] = None
     related_movies: List[RelatedMovie]
-

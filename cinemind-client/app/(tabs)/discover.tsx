@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, SafeAreaView, View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { StyleSheet, ScrollView, View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, Stack } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import MovieCarousel from '@/components/MovieCarousel';
 import API_BASE_URL from '@/constants/config';
@@ -91,55 +92,52 @@ export default function DiscoverScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>둘러보기</Text>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
-            <Text style={styles.stateMessage}>콘텐츠를 불러오는 중...</Text>
-          </View>
-        ) : error ? (
-          <FullScreenState title="오류" message={error} onRetry={fetchAllData} />
-        ) : carousels.length === 0 ? (
-          <FullScreenState title="콘텐츠 없음" message="표시할 영화 정보가 없습니다." onRetry={fetchAllData} />
-        ) : (
-          carousels.map((carousel, index) => (
-            <View key={index} style={styles.carouselContainer}>
-              <View style={styles.carouselHeader}>
-                <Text style={styles.carouselTitle}>{carousel.title}</Text>
-                <TouchableOpacity onPress={() => handleSeeMore(carousel.title, carousel.apiUrl)}>
-                  <Text style={styles.seeMoreText}>더보기</Text>
-                </TouchableOpacity>
-              </View>
-              <MovieCarousel 
-                movies={carousel.movies}
-                onMoviePress={(movie) => handleMoviePress(movie, 'tmdb')}
-              />
+    <>
+      <Stack.Screen options={{ title: '추천' }} />
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.container}>
+          {isLoading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={Colors.light.primary} />
+              <Text style={styles.stateMessage}>콘텐츠를 불러오는 중...</Text>
             </View>
-          ))
-        )}
-      </ScrollView>
-      <MovieModal 
-        visible={modalVisible} 
-        onClose={handleCloseModal} 
-        movie={selectedMovie} 
-        isDetailLoading={isDetailLoading} 
-        onSaveRating={handleSaveRating}
-        onToggleLike={handleToggleLike}
-      />
-    </SafeAreaView>
+          ) : error ? (
+            <FullScreenState title="오류" message={error} onRetry={fetchAllData} />
+          ) : carousels.length === 0 ? (
+            <FullScreenState title="콘텐츠 없음" message="표시할 영화 정보가 없습니다." onRetry={fetchAllData} />
+          ) : (
+            carousels.map((carousel, index) => (
+              <View key={index} style={styles.carouselContainer}>
+                <View style={styles.carouselHeader}>
+                  <Text style={styles.carouselTitle}>{carousel.title}</Text>
+                  <TouchableOpacity onPress={() => handleSeeMore(carousel.title, carousel.apiUrl)}>
+                    <Text style={styles.seeMoreText}>더보기</Text>
+                  </TouchableOpacity>
+                </View>
+                <MovieCarousel 
+                  movies={carousel.movies}
+                  onMoviePress={(movie) => handleMoviePress(movie, 'tmdb')}
+                />
+              </View>
+            ))
+          )}
+        </ScrollView>
+        <MovieModal 
+          visible={modalVisible} 
+          onClose={handleCloseModal} 
+          movie={selectedMovie} 
+          isDetailLoading={isDetailLoading} 
+          onSaveRating={handleSaveRating}
+          onToggleLike={handleToggleLike}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: 'white' },
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: 'bold', color: Colors.light.text },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -171,7 +169,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  carouselContainer: { marginBottom: 24 },
+  carouselContainer: { marginBottom: 24, paddingTop: 24 },
   carouselHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

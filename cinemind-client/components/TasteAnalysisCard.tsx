@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
-import { PieChart } from 'react-native-chart-kit';
+import { PieChart } from 'react-native-gifted-charts'; // New library for PieChart
 import { useRouter } from 'expo-router'; // Import useRouter
 
 // Backend의 TasteAnalysisResponse 스키마와 일치하는 TypeScript 인터페이스
@@ -57,6 +57,7 @@ const TasteAnalysisCard: React.FC<{ analysis: TasteAnalysisResponse | null }> = 
         color: ratingColors[item.rating - 1] || '#D1D5DB',
         legendFontColor: Colors.light.textSecondary,
         legendFontSize: 14,
+        value: item.count, // For react-native-gifted-charts
       };
     })
     .sort((a, b) => b.population - a.population); // Sort by count descending
@@ -122,16 +123,14 @@ const TasteAnalysisCard: React.FC<{ analysis: TasteAnalysisResponse | null }> = 
         <Text style={styles.sectionTitle}>별점 분포 <Text style={styles.chartSubtitle}>(단위: 편)</Text></Text>
         <PieChart
           data={pieChartData}
-          width={screenWidth - 40}
-          height={220}
-          chartConfig={{
-            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-          }}
-          accessor={"population"}
-          backgroundColor={"transparent"}
-          paddingLeft={"15"}
-          center={[10, 0]}
-          hasLegend={false} // Hide default legend
+          radius={screenWidth / 3.5} // Adjust radius to be roughly similar to old chart
+          showText={false} // Percentages are shown in custom legend, not on slices
+          sectionAutoFocus={false}
+          focusOnPress={false}
+          strokeWidth={1}
+          strokeColor={'white'}
+          // Original chart did not have donut or centerLabel
+          // No direct equivalent for paddingLeft or center like in react-native-chart-kit
         />
         <View style={styles.legendContainer}>
           {pieChartData.map((item, index) => (

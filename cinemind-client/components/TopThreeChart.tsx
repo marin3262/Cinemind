@@ -18,7 +18,7 @@ const TopThreeChart = ({ topMovies, maxAudience, sortBy, onMoviePress }) => {
 
                 return (
                   <TouchableOpacity key={movie.id} style={styles.chartRow} onPress={() => onMoviePress(movie)}>
-                    <Text style={styles.chartRank}>{sortBy === 'rank' ? movie.rank : index + 1}</Text>
+                    <Text style={styles.chartRank}>{movie.rank}</Text>
                     <View style={styles.chartContent}>
                       <View style={styles.chartTextRow}>
                         <Text style={styles.chartTitle} numberOfLines={1}>{movie.title || '제목 없음'}</Text>

@@ -1,25 +1,25 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, Stack } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { authenticatedFetch } from '@/utils/api';
 import API_BASE_URL from '@/constants/config';
-import { Image } from 'expo-image';
-import { FontAwesome } from '@expo/vector-icons';
 import MovieModal from '@/components/MovieModal';
-import { useMovieModal } from '@/hooks/useMovieModal'; // Import the custom hook
+import { useMovieModal } from '@/hooks/useMovieModal';
+import LikedMovieListItem from '@/components/LikedMovieListItem'; // Import the new component
 
-type LikedMovie = {
+export type LikedMovie = {
     movie_id: string;
     title: string;
     poster_url: string | null;
+    created_at: string; // From datetime to string
 };
 
 export default function MyLikesScreen() {
     const [likedMovies, setLikedMovies] = useState<LikedMovie[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchLikedMovies = useCallback(async () => {
@@ -48,9 +48,10 @@ export default function MyLikesScreen() {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-    }, []);
+        fetchLikedMovies();
+    }, [fetchLikedMovies]);
 
-    const handleToggleLike = async (movieId: string | number, isLiked: boolean) => {
+    const handleToggleLikeInModal = async (movieId: string | number, isLiked: boolean) => {
         try {
             const response = await authenticatedFetch(`${API_BASE_URL}/movies/${movieId}/like`, {
                 method: isLiked ? 'POST' : 'DELETE',
@@ -68,7 +69,6 @@ export default function MyLikesScreen() {
         }
     };
 
-    // Use the custom hook for all modal logic
     const { 
         modalVisible, 
         selectedMovie, 
@@ -77,7 +77,7 @@ export default function MyLikesScreen() {
         handleCloseModal, 
         handleSaveRating 
     } = useMovieModal({
-        onRatingSaved: () => {} // This page doesn't need to refetch on rating
+        onRatingSaved: () => {}
     });
 
     const renderContent = () => {
@@ -92,58 +92,50 @@ export default function MyLikesScreen() {
         }
 
         return (
-            <View style={styles.movieGrid}>
-                {likedMovies.map(movie => (
-                    <TouchableOpacity 
-                        key={movie.movie_id} 
-                        style={styles.movieCard} 
-                        onPress={() => handleMoviePress({ id: movie.movie_id, ...movie })}
-                    >
-                        <Image source={{ uri: movie.poster_url || undefined }} style={styles.posterImage} />
-                        <Text style={styles.movieTitle} numberOfLines={2}>{movie.title}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            <FlatList
+                data={likedMovies}
+                keyExtractor={(item) => item.movie_id}
+                renderItem={({ item }) => (
+                    <LikedMovieListItem 
+                        movie={item} 
+                        onPress={() => handleMoviePress({ id: item.movie_id, ...item })}
+                    />
+                )}
+                contentContainerStyle={styles.listContainer}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            />
         );
     };
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="arrow-left" size={24} color={Colors.light.text} />
-                </TouchableOpacity>
-                <Text style={styles.title}>찜한 영화</Text>
-            </View>
-            <ScrollView 
-                style={styles.container}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
+        <>
+            <Stack.Screen options={{ title: '찜한 영화', headerBackTitle: '뒤로가기' }} />
+            <SafeAreaView style={styles.safeArea}>
                 {renderContent()}
-            </ScrollView>
-            {selectedMovie && (
-                <MovieModal 
-                    visible={modalVisible} 
-                    onClose={handleCloseModal} 
-                    movie={selectedMovie} 
-                    isDetailLoading={isDetailLoading} 
-                    onSaveRating={handleSaveRating}
-                    onToggleLike={handleToggleLike}
-                />
-            )}
-        </SafeAreaView>
+                {selectedMovie && (
+                    <MovieModal 
+                        visible={modalVisible} 
+                        onClose={handleCloseModal} 
+                        movie={selectedMovie} 
+                        isDetailLoading={isDetailLoading} 
+                        onSaveRating={handleSaveRating}
+                        onToggleLike={handleToggleLikeInModal}
+                    />
+                )}
+            </SafeAreaView>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: 'white' },
-    container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-    backButton: { marginRight: 16, padding: 4 },
-    title: { fontSize: 24, fontWeight: 'bold', color: Colors.light.text },
-    infoText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: Colors.light.textSecondary },
-    movieGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 4 },
-    movieCard: { width: '33.333%', padding: 4 },
-    posterImage: { width: '100%', aspectRatio: 2/3, borderRadius: 8, backgroundColor: '#E5E7EB' },
-    movieTitle: { fontSize: 12, marginTop: 4, textAlign: 'center' },
+    listContainer: {
+        paddingVertical: 8,
+    },
+    infoText: { 
+        textAlign: 'center', 
+        marginTop: 50, 
+        fontSize: 16, 
+        color: Colors.light.textSecondary 
+    },
 });

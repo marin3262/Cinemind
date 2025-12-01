@@ -55,11 +55,7 @@ const InnerContent = ({ email, password, setEmail, setPassword, handleLogin, rou
         <Text style={styles.loginButtonText}>로그인</Text>
       </TouchableOpacity>
 
-      <View style={styles.linksContainer}>
-        <TouchableOpacity onPress={() => console.log('Forgot Password')}>
-            <Text style={styles.linkText}>비밀번호를 잊으셨나요?</Text>
-        </TouchableOpacity>
-      </View>
+
     </View>
 
     <View style={styles.signupContainer}>
@@ -117,8 +113,6 @@ const styles = StyleSheet.create({
   input: { width: '100%', padding: 16, borderWidth: 1, borderColor: Colors.light.border, borderRadius: 8, fontSize: 18 },
   loginButton: { width: '100%', backgroundColor: Colors.light.primary, padding: 16, borderRadius: 8, alignItems: 'center' },
   loginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  linksContainer: { marginTop: 24, alignItems: 'center' },
-  linkText: { fontSize: 14, fontWeight: '500', color: '#B91C1C' },
   signupContainer: { marginTop: 24, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   signupText: { color: Colors.light.textSecondary, fontSize: 16 },
   signupLink: { fontWeight: 'bold', color: Colors.light.primary },

@@ -14,23 +14,23 @@ const BattleSection = ({ battleData, handleMoviePress }) => {
     return (
         <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>오늘의 매치업</Text>
-            <Text style={styles.sectionSubtitle}>국내 vs 해외 박스오피스 1위</Text>
-            {battleData && (battleData.korean || battleData.foreign) ? (
+            <Text style={styles.sectionSubtitle}>박스오피스 1위 vs 2위</Text>
+            {battleData && (battleData.champion || battleData.challenger) ? (
                 <>
                     <View style={styles.battleContainer}>
                         <View style={styles.battleCard}>
-                            <Text style={styles.battleTitle}>국내 영화 1위</Text>
-                            {battleData.korean ? <BattleMovieCard movie={battleData.korean} onPress={() => handleMoviePress(battleData.korean, 'kobis')} /> : <EmptyStateCard message="데이터 없음" />}
+                            <Text style={styles.battleTitle}>박스오피스 1위</Text>
+                            {battleData.champion ? <BattleMovieCard movie={battleData.champion} onPress={() => handleMoviePress(battleData.champion, 'kobis')} /> : <EmptyStateCard message="데이터 없음" />}
                         </View>
                         <View style={styles.battleCard}>
-                            <Text style={styles.battleTitle}>해외 영화 1위</Text>
-                            {battleData.foreign ? <BattleMovieCard movie={battleData.foreign} onPress={() => handleMoviePress(battleData.foreign, 'kobis')} /> : <EmptyStateCard message="데이터 없음" />}
+                            <Text style={styles.battleTitle}>박스오피스 2위</Text>
+                            {battleData.challenger ? <BattleMovieCard movie={battleData.challenger} onPress={() => handleMoviePress(battleData.challenger, 'kobis')} /> : <EmptyStateCard message="데이터 없음" />}
                         </View>
                     </View>
-                    {battleData.korean && battleData.foreign && (
+                    {battleData.champion && battleData.challenger && (
                         <AudienceShareBar 
-                            koreanAudience={battleData.korean.daily_audience} 
-                            foreignAudience={battleData.foreign.daily_audience} 
+                            championAudience={battleData.champion.daily_audience} 
+                            challengerAudience={battleData.challenger.daily_audience} 
                         />
                     )}
                 </>
