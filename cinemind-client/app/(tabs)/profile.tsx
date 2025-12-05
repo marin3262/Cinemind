@@ -196,14 +196,6 @@ export default function ProfileScreen() {
                             <Text style={styles.buttonText}>로그아웃</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={[styles.logoutButton, styles.testButton]} 
-                            onPress={() => router.push('/onboarding')}
-                        >
-                            <FontAwesome name="rocket" size={20} color="white" />
-                            <Text style={styles.buttonText}>온보딩 테스트</Text>
-                        </TouchableOpacity>
-
                         <TouchableOpacity
                             style={[styles.logoutButton, styles.deleteButton]}
                             onPress={handleDeleteAccount}

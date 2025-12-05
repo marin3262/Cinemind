@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useNavigation } from 'expo-router';
 import { authenticatedFetch } from '@/utils/api';
 import API_BASE_URL from '@/constants/config';
 import { Colors } from '@/constants/theme';
@@ -12,7 +12,7 @@ import { FontAwesome } from '@expo/vector-icons';
 interface FilmoItem {
     movieCd: string;
     movieNm: string;
-    category: string;
+    category: string; // This comes from KOBIS, might be '배우', '감독' etc.
 }
 
 interface PersonDetails {
@@ -23,8 +23,9 @@ interface PersonDetails {
 }
 
 const PersonDetailScreen = () => {
-    const { id: personId } = useLocalSearchParams<{ id: string }>();
+    const { id: personId, name: personName } = useLocalSearchParams<{ id: string, name?: string }>();
     const router = useRouter();
+    const navigation = useNavigation();
     const [personDetails, setPersonDetails] = useState<PersonDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,13 @@ const PersonDetailScreen = () => {
         handleToggleLike,
     } = useMovieModal();
 
+    // Set header title dynamically
+    useLayoutEffect(() => {
+        const title = personDetails?.personNm || personName || '영화인 정보';
+        navigation.setOptions({ title });
+    }, [navigation, personDetails, personName]);
+
+
     useEffect(() => {
         if (!personId) return;
         const fetchPersonDetails = async () => {
@@ -47,7 +55,8 @@ const PersonDetailScreen = () => {
             try {
                 const response = await authenticatedFetch(`${API_BASE_URL}/person/${personId}`);
                 if (!response.ok) {
-                    throw new Error('영화인 정보를 불러오는 데 실패했습니다.');
+                    const data = await response.json();
+                    throw new Error(data.detail || '영화인 정보를 불러오는 데 실패했습니다.');
                 }
                 const data: PersonDetails = await response.json();
                 setPersonDetails(data);
@@ -72,7 +81,8 @@ const PersonDetailScreen = () => {
 
         // Group filmography by category (e.g., '감독', '배우')
         const groupedFilmos = filmos.reduce((acc, filmo) => {
-            const category = filmo.category || '기타';
+            // Use 'repRoleNm' if category is missing, default to '출연작'
+            const category = filmo.category || repRoleNm || '출연작';
             if (!acc[category]) {
                 acc[category] = [];
             }
@@ -81,7 +91,12 @@ const PersonDetailScreen = () => {
         }, {} as Record<string, FilmoItem[]>);
 
         return (
-            <ScrollView>
+            <ScrollView style={styles.container}>
+                <View style={styles.personHeader}>
+                    <Text style={styles.title}>{personNm}</Text>
+                    <Text style={styles.subtitle}>{repRoleNm}</Text>
+                </View>
+
                 {Object.entries(groupedFilmos).map(([category, movies]) => (
                     <View key={category} style={styles.section}>
                         <Text style={styles.sectionTitle}>{category}</Text>
@@ -103,15 +118,13 @@ const PersonDetailScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <FontAwesome name="arrow-left" size={24} color={Colors.light.text} />
-                </TouchableOpacity>
-                <View>
-                    <Text style={styles.title}>{personDetails?.personNm || '영화인 정보'}</Text>
-                    {personDetails?.repRoleNm && <Text style={styles.subtitle}>{personDetails.repRoleNm}</Text>}
-                </View>
-            </View>
+            {/* Use Expo Router's Stack to handle the header */}
+            <Stack.Screen
+                options={{
+                    headerTitle: personDetails?.personNm || personName || '로딩 중...',
+                    headerBackTitle: '뒤로가기',
+                }}
+            />
             {renderContent()}
             {selectedMovie && (
                 <MovieModal
@@ -130,22 +143,19 @@ const PersonDetailScreen = () => {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: 'white' },
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 16,
+    personHeader: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 24,
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6'
     },
-    backButton: { marginRight: 16, padding: 4 },
-    title: { fontSize: 24, fontWeight: 'bold', color: Colors.light.text },
-    subtitle: { fontSize: 16, color: Colors.light.textSecondary },
+    title: { fontSize: 28, fontWeight: 'bold', color: Colors.light.text },
+    subtitle: { fontSize: 18, color: Colors.light.textSecondary, marginTop: 4 },
     infoText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: Colors.light.textSecondary },
     section: { paddingHorizontal: 20, paddingVertical: 16 },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, borderLeftWidth: 4, borderLeftColor: Colors.light.primary, paddingLeft: 8 },
-    movieRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+    movieRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
     movieTitle: { fontSize: 16, marginLeft: 12 }
 });
 
