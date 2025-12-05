@@ -112,19 +112,26 @@ async def get_movies_for_onboarding(mood_keywords: List[str]) -> List[dict]:
         discover_responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         for i, response in enumerate(discover_responses):
-            if isinstance(response, httpx.Response) and response.status_code == 200:
-                data = response.json()
-                current_genre_id = target_genre_ids[i % len(target_genre_ids)]
-                genre_name = id_to_genre_name_map.get(current_genre_id, "기타")
-                
-                for movie in data.get("results", [])[:7]: # 장르당 7개씩 우선 수집
-                    if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
-                        movie_candidates.append({
-                            "movie_id": movie["id"], "title": movie["title"],
-                            "poster_url": get_full_poster_url(movie['poster_path']),
-                            "genre_name": genre_name
-                        })
-                        seen_movie_ids.add(movie["id"])
+            try:
+                if isinstance(response, httpx.Response) and response.status_code == 200:
+                    data = response.json()
+                    current_genre_id = target_genre_ids[i % len(target_genre_ids)]
+                    genre_name = id_to_genre_name_map.get(current_genre_id, "기타")
+                    
+                    for movie in data.get("results", [])[:7]: # 장르당 7개씩 우선 수집
+                        if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
+                            movie_candidates.append({
+                                "movie_id": movie["id"], "title": movie["title"],
+                                "poster_url": get_full_poster_url(movie['poster_path']),
+                                "genre_name": genre_name
+                            })
+                            seen_movie_ids.add(movie["id"])
+                elif isinstance(response, Exception):
+                    print(f"TMDB discover movie API 호출 중 예외 발생: {response}")
+                else: # httpx.Response but not 200
+                    print(f"TMDB discover movie API 호출 실패 (상태 코드: {response.status_code})")
+            except Exception as e:
+                print(f"TMDB discover movie 응답 처리 중 오류 발생: {e}")
         
         # 2. 영화가 부족할 경우, 기본 인기 장르에서 보충 (Fallback)
         if len(seen_movie_ids) < MIN_ONBOARDING_MOVIES:
@@ -150,20 +157,27 @@ async def get_movies_for_onboarding(mood_keywords: List[str]) -> List[dict]:
                 if len(seen_movie_ids) >= MIN_ONBOARDING_MOVIES:
                     break # 목표 개수를 채우면 중단
                 
-                if isinstance(response, httpx.Response) and response.status_code == 200:
-                    data = response.json()
-                    genre_name = fallback_genre_names[i % len(fallback_genre_names)]
-                    
-                    for movie in data.get("results", []):
-                        if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
-                            movie_candidates.append({
-                                "movie_id": movie["id"], "title": movie["title"],
-                                "poster_url": get_full_poster_url(movie['poster_path']),
-                                "genre_name": genre_name
-                            })
-                            seen_movie_ids.add(movie["id"])
-                            if len(seen_movie_ids) >= MIN_ONBOARDING_MOVIES:
-                                break
+                try:
+                    if isinstance(response, httpx.Response) and response.status_code == 200:
+                        data = response.json()
+                        genre_name = fallback_genre_names[i % len(fallback_genre_names)]
+                        
+                        for movie in data.get("results", []):
+                            if movie.get("poster_path") and movie["id"] not in seen_movie_ids:
+                                movie_candidates.append({
+                                    "movie_id": movie["id"], "title": movie["title"],
+                                    "poster_url": get_full_poster_url(movie['poster_path']),
+                                    "genre_name": genre_name
+                                })
+                                seen_movie_ids.add(movie["id"])
+                                if len(seen_movie_ids) >= MIN_ONBOARDING_MOVIES:
+                                    break
+                    elif isinstance(response, Exception):
+                        print(f"TMDB discover movie API (fallback) 호출 중 예외 발생: {response}")
+                    else:
+                        print(f"TMDB discover movie API (fallback) 호출 실패 (상태 코드: {response.status_code})")
+                except Exception as e:
+                    print(f"TMDB discover movie (fallback) 응답 처리 중 오류 발생: {e}")
     
     # 3. 수집된 영화들의 출연진 정보 병렬로 가져오기
     actor_map = {}
@@ -179,12 +193,17 @@ async def get_movies_for_onboarding(mood_keywords: List[str]) -> List[dict]:
 
         for i, response in enumerate(credits_responses):
             movie_id = movie_candidates[i]["movie_id"]
-            if isinstance(response, httpx.Response) and response.status_code == 200:
-                credits_data = response.json()
-                top_actors = [actor['name'] for actor in credits_data.get('cast', [])[:2]]
-                actor_map[movie_id] = top_actors
-            else:
-                actor_map[movie_id] = []
+            try:
+                if isinstance(response, httpx.Response) and response.status_code == 200:
+                    credits_data = response.json()
+                    top_actors = [actor['name'] for actor in credits_data.get('cast', [])[:2]]
+                    actor_map[movie_id] = top_actors
+                elif isinstance(response, Exception):
+                    print(f"TMDB credits API 호출 중 예외 발생: {response}")
+                else:
+                    print(f"TMDB credits API 호출 실패 (상태 코드: {response.status_code})")
+            except Exception as e:
+                print(f"TMDB credits 응답 처리 중 오류 발생: {e}")
 
     # 4. 최종 영화 목록에 배우 정보 결합
     onboarding_movies = []
@@ -217,21 +236,28 @@ async def get_details_for_movies(ids: List[int]) -> List[dict]:
         details_res = responses[i]
         keywords_res = responses[i+1]
 
-        if isinstance(details_res, httpx.Response) and details_res.status_code == 200:
-            movie = details_res.json()
-            keywords = []
-            if isinstance(keywords_res, httpx.Response) and keywords_res.status_code == 200:
-                keywords = [kw['name'] for kw in keywords_res.json().get('keywords', [])]
+        try:
+            if isinstance(details_res, httpx.Response) and details_res.status_code == 200:
+                movie = details_res.json()
+                keywords = []
+                if isinstance(keywords_res, httpx.Response) and keywords_res.status_code == 200:
+                    keywords = [kw['name'] for kw in keywords_res.json().get('keywords', [])]
 
-            if movie.get('poster_path'):
-                detailed_movies.append({
-                    "movie_id": movie["id"],
-                    "title": movie["title"],
-                    "poster_url": get_full_poster_url(movie.get('poster_path')),
-                    "genre_name": movie["genres"][0]["name"] if movie.get("genres") else "기타",
-                    "release_date": movie.get("release_date"),
-                    "keywords": keywords
-                })
+                if movie.get('poster_path'):
+                    detailed_movies.append({
+                        "movie_id": movie["id"],
+                        "title": movie["title"],
+                        "poster_url": get_full_poster_url(movie.get('poster_path')),
+                        "genre_name": movie["genres"][0]["name"] if movie.get("genres") else "기타",
+                        "release_date": movie.get("release_date"),
+                        "keywords": keywords
+                    })
+            elif isinstance(details_res, Exception):
+                print(f"TMDB movie details API 호출 중 예외 발생: {details_res}")
+            else:
+                print(f"TMDB movie details API 호출 실패 (상태 코드: {details_res.status_code})")
+        except Exception as e:
+            print(f"TMDB movie details 응답 처리 중 오류 발생: {e}")
     return detailed_movies
 
 def search_person_on_tmdb(name: str) -> dict | None:
@@ -347,6 +373,7 @@ async def get_top_rated_movies(page: int = 1) -> List[dict]:
             
             top_rated_movies = []
             for movie in results:
+                # Ensure poster_path exists, otherwise it's not useful
                 if movie.get("poster_path"):
                     top_rated_movies.append({
                         "id": movie["id"],
@@ -358,9 +385,11 @@ async def get_top_rated_movies(page: int = 1) -> List[dict]:
                     })
             return top_rated_movies
         except httpx.HTTPStatusError as e:
-            print(f"TMDB 평점 높은 영화 API 오류 발생: {e.response.status_code}")
+            # Log HTTP errors specifically, but return empty list for graceful degradation
+            print(f"TMDB 평점 높은 영화 API 오류 발생: {e.response.status_code} - {e.response.text}")
             return []
         except Exception as e:
+            # Catch any other unexpected errors during the API call or JSON parsing
             print(f"TMDB 평점 높은 영화 조회 중 예외 발생: {e}")
             return []
 
@@ -382,8 +411,10 @@ async def get_watch_providers(tmdb_id: int) -> dict:
             provider_list = [{"provider_name": provider.get("provider_name"), "logo_url": get_full_poster_url(provider.get("logo_path"))} for provider in providers]
             return {"link": link, "providers": provider_list}
         except httpx.HTTPStatusError as e:
-            if e.response.status_code != 404:
-                print(f"TMDB Watch Providers API 오류: {e.response.status_code}")
+            if e.response.status_code == 404:
+                print(f"TMDB Watch Providers API: Watch providers not found for movie {tmdb_id}.")
+            else:
+                print(f"TMDB Watch Providers API 오류: {e.response.status_code} - {e.response.text}")
             return {"link": None, "providers": []}
         except Exception as e:
             print(f"TMDB Watch Providers 조회 중 예외: {e}")
@@ -407,12 +438,21 @@ async def get_movie_details_by_tmdb_id(tmdb_id: int) -> dict | None:
             
             details_res, credits_res, provider_data = responses
             
-            if isinstance(details_res, Exception) or details_res.status_code != 200: return None
-            if isinstance(credits_res, Exception) or credits_res.status_code != 200: return None
+            # Check if details_res is a successful httpx.Response object
+            if not (isinstance(details_res, httpx.Response) and details_res.status_code == 200):
+                print(f"TMDB movie details API 호출 실패 또는 예외 발생: {details_res}")
+                return None
+            
+            # Check if credits_res is a successful httpx.Response object
+            if not (isinstance(credits_res, httpx.Response) and credits_res.status_code == 200):
+                print(f"TMDB credits API 호출 실패 또는 예외 발생: {credits_res}")
+                # We can still proceed with details if credits fail, so log and use empty data
+                credits = {}
+            else:
+                credits = credits_res.json()
 
             details = details_res.json()
-            credits = credits_res.json()
-
+            
             director = next((person['name'] for person in credits.get('crew', []) if person.get('job') == 'Director'), "N/A")
             actors = [person['name'] for person in credits.get('cast', [])[:5]]
 
@@ -525,6 +565,7 @@ async def get_recent_releases(days_ago: int = 7) -> List[dict]:
             
             movies = []
             for movie in results:
+                # Ensure poster_path exists, otherwise it's not useful
                 if movie.get("poster_path"):
                     movies.append({
                         "id": movie["id"],
@@ -536,7 +577,7 @@ async def get_recent_releases(days_ago: int = 7) -> List[dict]:
                     })
             return movies
         except httpx.HTTPStatusError as e:
-            print(f"TMDB 신작 영화 API 오류: {e.response.status_code}")
+            print(f"TMDB 신작 영화 API 오류: {e.response.status_code} - {e.response.text}")
             return []
         except Exception as e:
             print(f"TMDB 신작 영화 조회 중 예외 발생: {e}")

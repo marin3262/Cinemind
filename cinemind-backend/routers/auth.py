@@ -92,4 +92,5 @@ def login(user: UserLogin):
     except Exception as e:
         if "Invalid login credentials" in str(e):
             raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 잘못되었습니다.")
-        raise HTTPException(status_code=400, detail=str(e))
+        # Handle other potential errors from Supabase more gracefully
+        raise HTTPException(status_code=503, detail=f"인증 서비스에 문제가 발생했습니다: {str(e)}")

@@ -12,6 +12,7 @@ import { moods, Mood } from '@/constants/moods'; // Import shared moods
 import MoodButton from '@/components/MoodButton'; // Import shared button component
 
 export default function HomeScreen() {
+  console.log(`[CLIENT-DIAGNOSTIC] Home screen rendered at ${new Date().toISOString()}`);
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -35,12 +35,21 @@ def get_daily_box_office(repNationCd: str | None = None):
         response.raise_for_status() # 오류가 발생하면 예외를 발생시킴
         data = response.json()
         return data.get('boxOfficeResult', {}).get('dailyBoxOfficeList', [])
+    except requests.exceptions.HTTPError as e:
+        print(f"KOBIS API 호출 중 HTTP 오류 발생: {e.response.status_code} - {e.response.text}")
+        return [] # Empty list for graceful degradation
+    except requests.exceptions.ConnectionError as e:
+        print(f"KOBIS API 연결 오류 발생: {e}")
+        return []
+    except requests.exceptions.Timeout as e:
+        print(f"KOBIS API 요청 시간 초과: {e}")
+        return []
     except requests.exceptions.RequestException as e:
-        print(f"KOBIS API 호출 중 오류 발생: {e}")
-        return None
+        print(f"KOBIS API 호출 중 알 수 없는 요청 오류 발생: {e}")
+        return []
     except Exception as e:
-        print(f"KOBIS 데이터 처리 중 오류 발생: {e}")
-        return None
+        print(f"KOBIS 데이터 처리 중 예외 발생: {e}")
+        return []
 
 def get_movie_details(movie_cd: str):
     """
@@ -58,8 +67,20 @@ def get_movie_details(movie_cd: str):
         response.raise_for_status()
         data = response.json()
         return data.get('movieInfoResult', {}).get('movieInfo', None)
+    except requests.exceptions.HTTPError as e:
+        print(f"KOBIS 영화 상세 정보 조회 중 HTTP 오류 발생: {e.response.status_code} - {e.response.text}")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"KOBIS 영화 상세 정보 조회 중 연결 오류 발생: {e}")
+        return None
+    except requests.exceptions.Timeout as e:
+        print(f"KOBIS 영화 상세 정보 조회 중 요청 시간 초과: {e}")
+        return None
     except requests.exceptions.RequestException as e:
-        print(f"KOBIS 영화 상세 정보 조회 중 오류 발생: {e}")
+        print(f"KOBIS 영화 상세 정보 조회 중 알 수 없는 요청 오류 발생: {e}")
+        return None
+    except Exception as e:
+        print(f"KOBIS 영화 상세 정보 처리 중 예외 발생: {e}")
         return None
 
 def search_person_by_name(person_nm: str):
@@ -88,8 +109,20 @@ def search_person_by_name(person_nm: str):
             return people_list[0].get("peopleCd")
         return None
         
+    except requests.exceptions.HTTPError as e:
+        print(f"KOBIS 영화인 목록 조회 중 HTTP 오류 발생: {e.response.status_code} - {e.response.text}")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"KOBIS 영화인 목록 조회 중 연결 오류 발생: {e}")
+        return None
+    except requests.exceptions.Timeout as e:
+        print(f"KOBIS 영화인 목록 조회 중 요청 시간 초과: {e}")
+        return None
     except requests.exceptions.RequestException as e:
-        print(f"KOBIS 영화인 목록 조회 중 오류 발생: {e}")
+        print(f"KOBIS 영화인 목록 조회 중 알 수 없는 요청 오류 발생: {e}")
+        return None
+    except Exception as e:
+        print(f"KOBIS 영화인 목록 처리 중 예외 발생: {e}")
         return None
 
 def get_person_details(person_cd: str):
@@ -133,9 +166,18 @@ def get_person_details(person_cd: str):
             "filmos": filmos,
         }
 
+    except requests.exceptions.HTTPError as e:
+        print(f"KOBIS 영화인 상세 정보 조회 중 HTTP 오류 발생: {e.response.status_code} - {e.response.text}")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"KOBIS 영화인 상세 정보 조회 중 연결 오류 발생: {e}")
+        return None
+    except requests.exceptions.Timeout as e:
+        print(f"KOBIS 영화인 상세 정보 조회 중 요청 시간 초과: {e}")
+        return None
     except requests.exceptions.RequestException as e:
-        print(f"KOBIS 영화인 상세 정보 조회 중 오류 발생: {e}")
+        print(f"KOBIS 영화인 상세 정보 조회 중 알 수 없는 요청 오류 발생: {e}")
         return None
     except Exception as e:
-        print(f"KOBIS 상세 정보 처리 중 오류 발생: {e}")
+        print(f"KOBIS 상세 정보 처리 중 예외 발생: {e}")
         return None

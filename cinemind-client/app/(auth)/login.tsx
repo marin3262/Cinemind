@@ -15,7 +15,7 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthManager';
 
 // InnerContent를 LoginScreen 밖으로 분리하여 불필요한 리렌더링 방지
 const InnerContent = ({ email, password, setEmail, setPassword, handleLogin, router }: any) => (

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthManager';
 import API_BASE_URL from '@/constants/config';
 
 const InnerContent = (props: any) => {

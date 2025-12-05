@@ -473,7 +473,12 @@ async def get_movie_detail_by_id(movie_id: str, current_user: dict | None = Depe
 
     # 4. Cache the enriched data to our DB
     try:
-        db_record = { "id": details['id'], "title": details.get('title'), "release_date": details.get('release_date'), "runtime": details.get('runtime'), "genres": details.get('genres'), "directors": details.get('directors'), "actors": details.get('actors'), "synopsis": details.get('synopsis'), "poster_url": details.get('poster_url'), "backdrop_url": details.get('backdrop_url'), "last_updated": datetime.now(timezone.utc).isoformat() }
+        # Data sanitization before caching
+        release_date = details.get('release_date')
+        if release_date == "":
+            release_date = None
+
+        db_record = { "id": details['id'], "title": details.get('title'), "release_date": release_date, "runtime": details.get('runtime'), "genres": details.get('genres'), "directors": details.get('directors'), "actors": details.get('actors'), "synopsis": details.get('synopsis'), "poster_url": details.get('poster_url'), "backdrop_url": details.get('backdrop_url'), "last_updated": datetime.now(timezone.utc).isoformat() }
         supabase_admin.table('movies').upsert(db_record).execute()
     except Exception as e:
         print(f"DB에 영화 정보 캐싱 중 오류: {e}")

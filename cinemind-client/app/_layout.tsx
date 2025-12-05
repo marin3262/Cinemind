@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthManager';
 
 SplashScreen.preventAutoHideAsync();
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthManager';
 import { Colors } from '@/constants/theme';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
